@@ -1,0 +1,78 @@
+{
+  "name": "Multilingual Content Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "Bonjour, comment allez-vous? Je voudrais discuter de l'automatisation."
+      },
+      "id": "input-text",
+      "name": "Input Text",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "text": "={{$json.content}}"
+      },
+      "id": "detect-language",
+      "name": "Detect Language",
+      "type": "n8n-nodes-chrome-ai.chromeLanguageDetector",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "credentials": {
+        "chromeAiApi": {
+          "id": "1",
+          "name": "Chrome AI Bridge"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "text": "={{$json.content}}",
+        "sourceLanguage": "={{$json.language}}",
+        "targetLanguage": "en"
+      },
+      "id": "translate",
+      "name": "Translate to English",
+      "type": "n8n-nodes-chrome-ai.chromeTranslator",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "credentials": {
+        "chromeAiApi": {
+          "id": "1",
+          "name": "Chrome AI Bridge"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "systemPrompt": "You are a helpful assistant that summarizes conversations.",
+        "userPrompt": "Summarize this message: {{$json.translatedText}}"
+      },
+      "id": "process-ai",
+      "name": "Process with AI",
+      "type": "n8n-nodes-chrome-ai.chromePromptAi",
+      "typeVersion": 1,
+      "position": [850, 300],
+      "credentials": {
+        "chromeAiApi": {
+          "id": "1",
+          "name": "Chrome AI Bridge"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Input Text": {
+      "main": [[{ "node": "Detect Language", "type": "main", "index": 0 }]]
+    },
+    "Detect Language": {
+      "main": [[{ "node": "Translate to English", "type": "main", "index": 0 }]]
+    },
+    "Translate to English": {
+      "main": [[{ "node": "Process with AI", "type": "main", "index": 0 }]]
+    }
+  }
+}
+

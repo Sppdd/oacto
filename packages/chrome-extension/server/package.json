@@ -1,0 +1,22 @@
+{
+  "name": "chrome-ai-bridge-server",
+  "version": "1.0.0",
+  "description": "Bridge server connecting n8n to Chrome AI extension",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": ["chrome-ai", "n8n", "bridge", "websocket"],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "ws": "^8.14.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
+

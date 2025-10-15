@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chrome AI Bridge</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🤖 Chrome AI Bridge</h1>
+      <p class="subtitle">for n8n</p>
+    </header>
+
+    <div class="status-card">
+      <div class="status-row">
+        <span class="label">Bridge Server</span>
+        <span class="status" id="bridge-status">
+          <span class="indicator checking"></span>
+          <span class="text">Checking...</span>
+        </span>
+      </div>
+      
+      <div class="status-row">
+        <span class="label">Chrome AI</span>
+        <span class="status" id="ai-status">
+          <span class="indicator checking"></span>
+          <span class="text">Checking...</span>
+        </span>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <h3>Bridge Server</h3>
+      <div class="code-block">http://localhost:3333</div>
+      <p class="hint">Use this URL in n8n credentials</p>
+    </div>
+
+    <div class="quick-start">
+      <h3>Quick Start</h3>
+      <ol>
+        <li>Start bridge server: <code>npm start</code></li>
+        <li>Install n8n nodes: <code>npm install n8n-nodes-chrome-ai</code></li>
+        <li>Create workflows in n8n</li>
+      </ol>
+    </div>
+
+    <div class="links">
+      <a href="../settings/settings.html" target="_blank">Settings</a>
+      <a href="https://github.com/yourusername/n8n-nodes-chrome-ai" target="_blank">Docs</a>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
+
