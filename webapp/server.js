@@ -336,6 +336,96 @@ app.post('/api/language-detector', async (req, res) => {
   }
 });
 
+// ===========================
+// Workflow Management API
+// ===========================
+
+// Get all workflows
+app.get('/api/workflows', async (req, res) => {
+  try {
+    const fs = require('fs').promises;
+    const path = require('path');
+    
+    const examplesDir = path.join(__dirname, '..', 'examples');
+    const files = await fs.readdir(examplesDir);
+    
+    const workflows = await Promise.all(
+      files
+        .filter(f => f.endsWith('.json'))
+        .map(async (file) => {
+          const content = await fs.readFile(path.join(examplesDir, file), 'utf-8');
+          const workflow = JSON.parse(content);
+          return {
+            id: file.replace('.json', ''),
+            name: workflow.name || file,
+            file: file,
+            nodes: workflow.nodes?.length || 0,
+          };
+        })
+    );
+
+    res.json({
+      success: true,
+      workflows,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// Get workflow by ID
+app.get('/api/workflows/:id', async (req, res) => {
+  try {
+    const fs = require('fs').promises;
+    const path = require('path');
+    
+    const workflowFile = path.join(__dirname, '..', 'examples', `${req.params.id}.json`);
+    const content = await fs.readFile(workflowFile, 'utf-8');
+    const workflow = JSON.parse(content);
+
+    res.json({
+      success: true,
+      workflow,
+    });
+  } catch (error) {
+    res.status(404).json({
+      success: false,
+      error: 'Workflow not found',
+    });
+  }
+});
+
+// ===========================
+// Session Management API
+// ===========================
+
+// Get session status
+app.get('/api/sessions/status', async (req, res) => {
+  try {
+    const response = await callWebApp('getSessionStatus', {});
+    
+    if (response.success) {
+      res.json({
+        success: true,
+        sessions: response.value,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: response.error || 'Failed to get session status',
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
 // Start HTTP server
 app.listen(HTTP_PORT, () => {
   console.log('');

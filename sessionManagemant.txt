@@ -1,0 +1,453 @@
+Directory structure:
+└── ai-session-management/
+    ├── index.html
+    ├── script.js
+    └── style.css
+
+
+Files Content:
+
+================================================
+FILE: ai-session-management/index.html
+================================================
+<!--
+  Copyright 2025 Google LLC
+  SPDX-License-Identifier: Apache-2.0
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <meta http-equiv="origin-trial" content="AoXwZGsUZlGEyuueX5nR6tujynrCfWhNWQnZcHTy3AZkXtCMULt/UJs6+/1Bp5jVw7Ue96Tcyf1IO8IRUMimAgcAAABeeyJvcmlnaW4iOiJodHRwczovL2Nocm9tZS5kZXY6NDQzIiwiZmVhdHVyZSI6IkFJUHJvbXB0QVBJTXVsdGltb2RhbElucHV0IiwiZXhwaXJ5IjoxNzc0MzEwNDAwfQ==">
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎉</text></svg>"
+    />
+    <title>AI Assistant Management</title>
+    <link rel="stylesheet" href="style.css" />
+    <script>
+      if (!isSecureContext) location.protocol = 'https:';
+    </script>
+    <script src="script.js" type="module"></script>
+  </head>
+  <body>
+    <h1>AI Assistant Management</h1>
+
+    <form hidden class="prompt-form">
+      <label for="prompt">Prompt</label>
+      <input name="prompt" class="prompt-input" />
+      <button type="submit">✨ Send</button>
+      <button class="stop-button" type="button">🛑 Stop</button>
+    </form>
+
+    <form class="active-assistant-form">
+      <fieldset>
+        <legend>Assistant chooser</legend>
+        <div></div>
+      </fieldset>
+
+      <button type="button" class="new-assistant">
+        🆕 Create new assistant
+      </button>
+    </form>
+
+    <template id="assistant">
+      <details name="assistants-accordion">
+        <summary class="conversation-summary"></summary>
+        <div>
+          <button class="delete-conversation" type="button">
+          🗑️ Delete assistant
+          </button>
+          <strong>Tokens so far:</strong> <span class=tokens-so-far>0</span> &bullet;
+          <strong>Tokens left:</strong> <span class=tokens-left></span>
+          </div>
+        <div>
+          <input type="radio" name="active-assistant" />
+          <ul class="conversation-container"></ul>
+        </div>
+      </details>
+    </template>
+
+    <template id="conversation">
+      <li class="item"></li>
+    </template>
+    <footer>
+      Made by
+      <a href="https://github.com/tomayac/">@tomayac</a>. Source code on
+      <a href="https://github.com/GoogleChromeLabs/web-ai-demos">GitHub</a>.
+    </footer>
+  </body>
+</html>
+
+
+
+================================================
+FILE: ai-session-management/script.js
+================================================
+/**
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+const assistantTemplate = document.querySelector('#assistant');
+const conversationTemplate = document.querySelector('#conversation');
+
+const newAssistantButton = document.querySelector('.new-assistant');
+const stopButton = document.querySelector('.stop-button');
+const assistantContainer = document.querySelector('div');
+const promptForm = document.querySelector('.prompt-form');
+const activeAssistantForm = document.querySelector('.active-assistant-form');
+const promptInput = document.querySelector('.prompt-input');
+
+const assistants = {};
+
+const DEFAULT_PARMS = {
+  defaultTopK: 3,
+  defaultTemperature: 1.0,
+};
+
+let controller = null;
+
+stopButton.addEventListener('click', () => {
+  controller.abort();
+});
+
+const getUUIDs = () => {
+  try {
+    const uuids = localStorage.getItem('uuids');
+    if (!uuids) {
+      return [];
+    }
+    return JSON.parse(uuids);
+  } catch {
+    return [];
+  }
+};
+
+async function createLanguageModel(options) {
+  if ("LanguageModel" in self) {
+    return await self.LanguageModel.create(options);
+  }
+}
+
+(async function init() {
+  // Get the default parameters.
+  // The new API shape, currently behind a flag in Canary has a `params()` method that returs
+  // the default and maximing topK and temperature. A hardcoded value, DEFAULT_PARAMS is used
+  // for the previous API shape.
+  const { defaultTopK: topK, defaultTemperature: temperature } = "LanguageModel" in self ?
+    await LanguageModel.params() : DEFAULT_PARMS;
+
+  const uuids = getUUIDs();
+
+  if (uuids.length) {
+    promptForm.hidden = false;
+  }
+
+  let isFirst = true;
+
+  for (const uuid of uuids) {
+    // Restore the options from localStorage, or initialize new options.
+    const storedOptions = ((uuid) => {
+      try {
+        const storedOptions = localStorage.getItem(uuid);
+        if (!storedOptions) {
+          return false;
+        }
+        return JSON.parse(storedOptions);
+      } catch {
+        return false;
+      }
+    })(uuid);
+
+    const options = storedOptions || {
+      initialPrompts: [],
+      topK,
+      temperature,
+      conversationSummary: 'New conversation',
+    };
+
+    const assistant = await createLanguageModel(options);
+    const { inputQuota, inputUsage } = assistant;
+    console.log(uuid, inputUsage, inputQuota);
+
+    assistants[uuid] = { assistant, options };
+
+    const assistantClone = assistantTemplate.content.cloneNode(true);
+    if (isFirst) {
+      assistantClone.querySelector('details').open = true;
+      assistantClone.querySelector('input').checked = true;
+      isFirst = false;
+    }
+    assistantClone.querySelector('.conversation-summary').textContent =
+      options.conversationSummary;
+    assistantClone.querySelector('input').value = uuid;
+    const conversationContainer = assistantClone.querySelector(
+      '.conversation-container'
+    );
+    assistantClone.querySelector('.tokens-so-far').textContent = assistant.inputUsage;
+    assistantClone.querySelector('.tokens-left').textContent = assistant.inputQuota - assistant.inputUsage;
+    assistantContainer.append(assistantClone);
+
+    for (const initialPrompt of options.initialPrompts) {
+      const conversationClone = conversationTemplate.content.cloneNode(true);
+      const item = conversationClone.querySelector('.item');
+      item.classList.add(initialPrompt.role);
+      item.textContent = initialPrompt.content;
+      conversationContainer.append(conversationClone);
+    }
+  }
+})();
+
+activeAssistantForm.addEventListener('click', async (e) => {
+  const nodeName = e.target.nodeName.toLowerCase();
+  if (nodeName !== 'summary' && nodeName !== 'button') {
+    return;
+  }
+  if (nodeName === 'summary') {
+    setTimeout(() => {
+      const openDetails = activeAssistantForm.querySelector(
+        'details[open] input'
+      );
+      if (!openDetails) {
+        return;
+      }
+      openDetails.checked = true;
+    }, 0);
+  } else if (
+    nodeName === 'button' &&
+    e.target.classList.contains('delete-conversation')
+  ) {
+    const details = e.target.closest('details');
+    const uuid = details.querySelector(
+      '[name="active-assistant"][value]'
+    ).value;
+    details.remove();
+
+    let uuids = getUUIDs();
+    uuids = uuids.filter((item) => item !== uuid);
+    localStorage.setItem('uuids', JSON.stringify(uuids));
+    localStorage.removeItem(uuid);
+  }
+});
+
+const createAssistant = async (options = {}) => {
+  try {
+    const uuid = crypto.randomUUID();
+    options.initialPrompts = options.initialPrompts || [];
+    const assistant = await createLanguageModel(options);
+    assistantTemplate.content.querySelector('.tokens-left').textContent = assistant.inputQuota;
+    assistants[uuid] = { assistant, options };
+    const uuids = getUUIDs();
+    uuids.push(uuid);
+    localStorage.setItem('uuids', JSON.stringify(uuids));
+    return uuid;
+  } catch (err) {
+    console.error(err.name, err.message);
+  }
+};
+
+newAssistantButton.addEventListener('click', async () => {
+  const uuid = await createAssistant();
+  const assistantClone = assistantTemplate.content.cloneNode(true);
+  assistantClone.querySelector('.conversation-summary').textContent =
+    'New conversation';
+  assistantClone.querySelector('input').value = uuid;
+  assistantContainer.append(assistantClone);
+  assistantContainer
+    .querySelectorAll('details')
+    .forEach((details) => (details.open = false));
+  assistantContainer.querySelector(
+    `details:has([value="${uuid}"])`
+  ).open = true;
+  assistantContainer.querySelector(`[value="${uuid}"]`).checked = true;
+  promptForm.hidden = false;
+  promptInput.value = '';
+  promptInput.focus();
+});
+
+promptForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const value = promptInput.value.trim();
+  if (!value) {
+    return;
+  }
+  if (!activeAssistantForm.querySelector('details[open]')) {
+    alert('Select an active assistant first.');
+    return;
+  }
+  const formData = new FormData(activeAssistantForm);
+  const uuid = formData.get('active-assistant');
+  const { assistant, options } = assistants[uuid];
+  console.log(assistant, options);
+
+  const conversationContainer = activeAssistantForm.querySelector(
+    `input[value="${uuid}"] + .conversation-container`
+  );
+  const conversationClone = conversationTemplate.content.cloneNode(true);
+  const item = conversationClone.querySelector('.item');
+  item.classList.add('user');
+  item.textContent = value;
+  conversationContainer.append(conversationClone);
+
+  try {
+    controller = new AbortController();
+    const stream = assistant.promptStreaming(value, {
+      signal: controller.signal,
+    });
+    const conversationClone = conversationTemplate.content.cloneNode(true);
+    const item = conversationClone.querySelector('.item');
+    item.classList.add('assistant');
+    conversationContainer.append(conversationClone);
+
+    let result = '';
+    let previousChunk = '';
+    for await (const chunk of stream) {
+      const newChunk = chunk.startsWith(previousChunk)
+        ? chunk.slice(previousChunk.length)
+        : chunk;
+      item.append(newChunk);
+      result += newChunk;
+      previousChunk = chunk;
+    }
+    const details = conversationContainer.closest('details');
+
+    // The new API shape in Chrome Canary renames `tokenSoFar` to `inputUsage`, `maxTokens` to `inputQuota` and removes
+    // `tokensLeft`. The code below uses whichever version is available.
+    details.querySelector('.tokens-so-far').textContent =
+        assistant.tokensSoFar || assistant.inputUsage;
+    details.querySelector('.tokens-left').textContent =
+        assistant.tokensLeft || assistant.inputQuota - assistant.inputUsage;
+
+    options.initialPrompts.push(
+      {
+        role: 'user',
+        content: value,
+      },
+      {
+        role: 'assistant',
+        content: result,
+      }
+    );
+
+    promptInput.value = '';
+    promptInput.focus();
+
+    const summaryAssistant = await createLanguageModel(options);
+    const summaryStream = summaryAssistant.promptStreaming(
+      'Summarize the conversation as briefly as possible in one short sentence.'
+    );
+    const conversationSummary = conversationContainer
+      .closest('details')
+      .querySelector('summary');
+    let previousSummaryChunk = '';
+    let firstTime = true;
+    for await (const chunk of summaryStream) {
+      if (firstTime) {
+        conversationSummary.textContent = '';
+        firstTime = false;
+      }
+      const newChunk = chunk.startsWith(previousSummaryChunk)
+        ? chunk.slice(previousSummaryChunk.length)
+        : chunk;
+      conversationSummary.append(newChunk);
+      previousSummaryChunk = chunk;
+    }
+    summaryAssistant.destroy();
+
+    options.conversationSummary = conversationSummary.textContent;
+    localStorage.setItem(uuid, JSON.stringify(options));
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      console.error(err.name, err.message);
+      return;
+    }
+    console.log(err.message);
+  }
+});
+
+
+
+================================================
+FILE: ai-session-management/style.css
+================================================
+/**
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+:root {
+  color-scheme: dark light;
+}
+
+html {
+  box-sizing: border-box;
+}
+
+*,
+*:before,
+*:after {
+  box-sizing: inherit;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  max-width: clamp(320px, 90%, 1000px);
+  margin: auto;
+}
+
+fieldset:has(legend + *:empty) {
+  display: none;
+}
+
+form,
+fieldset {
+  margin-block-end: 1rem;
+}
+
+details,
+summary {
+  margin-block-end: 1rem;
+}
+
+summary,
+button {
+  cursor: pointer;
+}
+
+summary:hover {
+  color: black;
+  background-color: yellow;
+}
+
+details[open] summary {
+  background-color: yellow;
+  color: black;
+}
+
+[name='active-assistant'] {
+  display: none;
+}
+
+li {
+  white-space: pre-wrap;
+}
+
+.user {
+  color: lime;
+  font-weight: bold;
+}
+
+.assistant {
+  color: red;
+  margin-block-end: 2rem;
+}
+
+footer {
+  margin-block: 1rem;
+}
+
+

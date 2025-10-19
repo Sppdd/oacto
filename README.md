@@ -1,14 +1,17 @@
-# Chrome Built-in AI × n8n Integration
+# Chrome AI Automation Platform
 
-Transform Chrome's built-in AI APIs into professional n8n nodes for **local-first, privacy-focused automation**.
+**Enterprise-grade automation platform** that brings Chrome's built-in AI (Gemini Nano) to n8n workflows with a beautiful, animated interface.
 
 ## 🎯 What This Is
 
-A complete system that brings Chrome's on-device AI (Gemini Nano) to n8n workflows:
+A complete automation platform with:
 - **7 n8n nodes** for Chrome AI APIs (Prompt, Writer, Summarizer, Translator, Rewriter, Proofreader, Language Detector)
-- **Web app** that runs in Chrome (no extension needed!)
-- **Simple architecture** - Just open a webpage
-- **100% local** - zero external API calls
+- **Animated dashboard** with real-time status monitoring
+- **Workflow management** - Run, organize, and schedule workflows with one click
+- **AI session management** - Persistent conversations with automatic cleanup
+- **Embedded n8n canvas** - Edit workflows without leaving the platform
+- **Interactive guide** - Step-by-step setup with animations
+- **100% local** - Zero external API calls, complete privacy
 
 ## 🏗️ Architecture (Simplified!)
 

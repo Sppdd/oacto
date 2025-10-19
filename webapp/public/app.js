@@ -1,27 +1,158 @@
-// Chrome AI Web App - Client-side AI executor
-// Accesses window.ai directly and communicates with server via WebSocket
+// Chrome AI Automation Platform - Main Application
+// Enhanced with anime.js animations and enterprise features
 
 let ws = null;
 let isAiAvailable = false;
+let currentView = 'dashboard';
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {
+  initializeAnimations();
+  initializeNavigation();
+  initializeModals();
   checkAIAvailability();
   connectToServer();
-  setupTestButton();
+  setupQuickActions();
+  loadWorkflows();
+  updateDashboardStats();
 });
 
-// Check if Chrome AI is available
+// ===========================
+// Animations with anime.js
+// ===========================
+
+function initializeAnimations() {
+  // Animate sidebar on load
+  anime({
+    targets: '.sidebar',
+    translateX: [-240, 0],
+    opacity: [0, 1],
+    duration: 600,
+    easing: 'easeOutExpo'
+  });
+
+  // Animate nav items
+  anime({
+    targets: '.nav-item',
+    translateX: [-20, 0],
+    opacity: [0, 1],
+    delay: anime.stagger(50, {start: 300}),
+    duration: 400,
+    easing: 'easeOutQuad'
+  });
+
+  // Animate status cards
+  anime({
+    targets: '.status-card',
+    scale: [0.9, 1],
+    opacity: [0, 1],
+    delay: anime.stagger(100, {start: 400}),
+    duration: 500,
+    easing: 'easeOutExpo'
+  });
+
+  // Animate action buttons
+  anime({
+    targets: '.action-btn',
+    scale: [0.8, 1],
+    opacity: [0, 1],
+    delay: anime.stagger(80, {start: 600}),
+    duration: 400,
+    easing: 'easeOutBack'
+  });
+}
+
+function animateViewTransition(viewId) {
+  const view = document.getElementById(viewId);
+  
+  anime({
+    targets: view.querySelectorAll('.page-header, .cards-grid, .section, .guide-step'),
+    translateY: [30, 0],
+    opacity: [0, 1],
+    delay: anime.stagger(80),
+    duration: 500,
+    easing: 'easeOutQuad'
+  });
+}
+
+function animateCardUpdate(cardId, success = true) {
+  const card = document.getElementById(cardId);
+  
+  anime({
+    targets: card,
+    scale: [1, 1.05, 1],
+    duration: 400,
+    easing: 'easeInOutQuad'
+  });
+
+  if (success) {
+    anime({
+      targets: card.querySelector('.card-icon'),
+      rotate: [0, 360],
+      duration: 600,
+      easing: 'easeInOutQuad'
+    });
+  }
+}
+
+// ===========================
+// Navigation
+// ===========================
+
+function initializeNavigation() {
+  const navItems = document.querySelectorAll('.nav-item');
+  
+  navItems.forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      const viewName = item.dataset.view;
+      switchView(viewName);
+    });
+  });
+}
+
+function switchView(viewName) {
+  // Update nav items
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.classList.remove('active');
+  });
+  document.querySelector(`[data-view="${viewName}"]`).classList.add('active');
+
+  // Update views
+  document.querySelectorAll('.view').forEach(view => {
+    view.classList.remove('active');
+  });
+  
+  const targetView = document.getElementById(`view-${viewName}`);
+  targetView.classList.add('active');
+  currentView = viewName;
+
+  // Animate view transition
+  animateViewTransition(`view-${viewName}`);
+
+  // Log navigation
+  addLog(`Navigated to ${viewName}`, 'info');
+}
+
+// ===========================
+// Chrome AI Availability Check
+// ===========================
+
 async function checkAIAvailability() {
-  const statusEl = document.getElementById('ai-status');
-  const indicator = statusEl.querySelector('.indicator');
-  const text = statusEl.querySelector('.text');
+  const statusText = document.getElementById('ai-status-text');
+  const statusMeta = document.getElementById('ai-meta');
+  const pulseDot = document.getElementById('connection-pulse');
+  const connectionText = document.getElementById('connection-text');
   
   try {
-    // Check for LanguageModel in global scope (correct API)
+    // Check for LanguageModel in global scope
     if (!('LanguageModel' in self)) {
-      indicator.className = 'indicator error';
-      text.textContent = 'Not Available - Enable in chrome://flags';
+      statusText.textContent = 'Not Available';
+      statusMeta.textContent = 'Enable in chrome://flags';
+      pulseDot.classList.add('error');
+      pulseDot.classList.remove('connected');
+      connectionText.textContent = 'AI Not Available';
+      animateCardUpdate('card-ai', false);
       addLog('❌ Chrome AI not available. Please enable flags and join the Early Preview Program.', 'error');
       return;
     }
@@ -34,11 +165,11 @@ async function checkAIAvailability() {
       });
       
       // If we get here, AI is ready
-      indicator.className = 'indicator connected';
-      text.textContent = 'Ready ✓';
+      statusText.textContent = 'Ready ✓';
+      statusMeta.textContent = 'Gemini Nano active';
       isAiAvailable = true;
-      document.getElementById('test-button').disabled = false;
-      addLog('✅ Chrome AI is available and ready');
+      animateCardUpdate('card-ai', true);
+      addLog('✅ Chrome AI is available and ready', 'success');
       
       // Clean up test session
       testSession.destroy();
@@ -46,9 +177,9 @@ async function checkAIAvailability() {
     } catch (createError) {
       // Check if it's a download issue
       if (createError.message.includes('download') || createError.message.includes('model')) {
-        indicator.className = 'indicator checking';
-        text.textContent = 'Downloading model...';
-        addLog('⏳ AI model is downloading. Please wait...');
+        statusText.textContent = 'Downloading...';
+        statusMeta.textContent = 'Model downloading (~1.5GB)';
+        addLog('⏳ AI model is downloading. Please wait...', 'warning');
         
         // Check again after download
         setTimeout(checkAIAvailability, 5000);
@@ -57,31 +188,39 @@ async function checkAIAvailability() {
       }
     }
   } catch (error) {
-    indicator.className = 'indicator error';
-    text.textContent = 'Error checking AI';
+    statusText.textContent = 'Error';
+    statusMeta.textContent = error.message;
+    pulseDot.classList.add('error');
+    pulseDot.classList.remove('connected');
     addLog(`❌ Error checking AI: ${error.message}`, 'error');
     console.error('AI availability check failed:', error);
   }
 }
 
-// Connect to WebSocket server
+// ===========================
+// WebSocket Connection
+// ===========================
+
 function connectToServer() {
-  const statusEl = document.getElementById('server-status');
-  const indicator = statusEl.querySelector('.indicator');
-  const text = statusEl.querySelector('.text');
+  const statusText = document.getElementById('server-status-text');
+  const pulseDot = document.getElementById('connection-pulse');
+  const connectionText = document.getElementById('connection-text');
 
   try {
     ws = new WebSocket('ws://localhost:3334');
 
     ws.onopen = () => {
-      indicator.className = 'indicator connected';
-      text.textContent = 'Connected ✓';
-      addLog('✅ Connected to server');
+      statusText.textContent = 'Connected ✓';
+      pulseDot.classList.add('connected');
+      pulseDot.classList.remove('error');
+      connectionText.textContent = 'Connected';
+      animateCardUpdate('card-server', true);
+      addLog('✅ Connected to server', 'success');
     };
 
     ws.onmessage = async (event) => {
       const message = JSON.parse(event.data);
-      addLog(`📨 Request: ${message.action}`);
+      addLog(`📨 Request: ${message.action}`, 'info');
       
       try {
         const result = await executeAIRequest(message);
@@ -105,8 +244,11 @@ function connectToServer() {
     };
 
     ws.onclose = () => {
-      indicator.className = 'indicator error';
-      text.textContent = 'Disconnected';
+      statusText.textContent = 'Disconnected';
+      pulseDot.classList.add('error');
+      pulseDot.classList.remove('connected');
+      connectionText.textContent = 'Reconnecting...';
+      animateCardUpdate('card-server', false);
       addLog('❌ Disconnected from server. Reconnecting...', 'error');
       
       // Reconnect after 5 seconds
@@ -117,13 +259,17 @@ function connectToServer() {
       console.error('WebSocket error:', error);
     };
   } catch (error) {
-    indicator.className = 'indicator error';
-    text.textContent = 'Connection failed';
+    statusText.textContent = 'Connection failed';
+    pulseDot.classList.add('error');
+    connectionText.textContent = 'Connection Failed';
     addLog(`❌ Failed to connect: ${error.message}`, 'error');
   }
 }
 
-// Execute AI request based on action
+// ===========================
+// AI Request Execution
+// ===========================
+
 async function executeAIRequest(message) {
   const { action, params } = message;
 
@@ -155,7 +301,6 @@ async function executePromptAI(params) {
     throw new Error('Chrome AI not available. Enable in chrome://flags');
   }
 
-  // Create session with configuration using the correct API
   const sessionConfig = {
     temperature: temperature || 0.8,
     topK: 3
@@ -174,7 +319,7 @@ async function executePromptAI(params) {
     const result = await session.prompt(userPrompt);
     return result;
   } finally {
-    session.destroy(); // Clean up session
+    session.destroy();
   }
 }
 
@@ -296,7 +441,6 @@ async function executeLanguageDetector(params) {
   try {
     const results = await detector.detect(text);
     
-    // Return top language
     if (results && results.length > 0) {
       return results[0].language;
     }
@@ -307,54 +451,175 @@ async function executeLanguageDetector(params) {
   }
 }
 
-// Setup test button
-function setupTestButton() {
-  const button = document.getElementById('test-button');
-  const promptInput = document.getElementById('test-prompt');
-  const resultDiv = document.getElementById('test-result');
+// ===========================
+// Quick Actions
+// ===========================
 
-  button.addEventListener('click', async () => {
-    const prompt = promptInput.value.trim();
-    
-    if (!prompt) {
-      alert('Please enter a test prompt');
-      return;
-    }
-
-    button.disabled = true;
-    button.textContent = 'Testing...';
-    resultDiv.classList.add('hidden');
-
-    try {
-      const result = await executePromptAI({
-        userPrompt: prompt,
-        temperature: 0.8
-      });
-
-      resultDiv.textContent = result;
-      resultDiv.classList.remove('hidden');
-      addLog('✅ Test successful', 'success');
-    } catch (error) {
-      resultDiv.textContent = `Error: ${error.message}`;
-      resultDiv.classList.remove('hidden');
-      addLog(`❌ Test failed: ${error.message}`, 'error');
-    } finally {
-      button.disabled = false;
-      button.textContent = 'Test Prompt AI';
-    }
+function setupQuickActions() {
+  document.querySelectorAll('.action-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      handleQuickAction(action);
+    });
   });
 }
 
-// Add log entry
+function handleQuickAction(action) {
+  switch (action) {
+    case 'test-ai':
+      openTestModal();
+      break;
+    case 'view-workflows':
+      switchView('workflows');
+      break;
+    case 'open-n8n':
+      window.open('http://localhost:5678', '_blank');
+      break;
+    case 'view-guide':
+      switchView('guide');
+      break;
+  }
+}
+
+// ===========================
+// Modals
+// ===========================
+
+function initializeModals() {
+  // Test AI Modal
+  const testModal = document.getElementById('test-modal');
+  const closeBtn = document.getElementById('close-test-modal');
+  const cancelBtn = document.getElementById('cancel-test');
+  const runBtn = document.getElementById('run-test');
+  const tempSlider = document.getElementById('test-temperature');
+  const tempValue = document.getElementById('temp-value');
+
+  closeBtn.addEventListener('click', () => closeTestModal());
+  cancelBtn.addEventListener('click', () => closeTestModal());
+  runBtn.addEventListener('click', () => runAITest());
+
+  tempSlider.addEventListener('input', (e) => {
+    tempValue.textContent = e.target.value;
+  });
+
+  // Open n8n external
+  const openN8nBtn = document.getElementById('open-n8n-external');
+  if (openN8nBtn) {
+    openN8nBtn.addEventListener('click', () => {
+      window.open('http://localhost:5678', '_blank');
+    });
+  }
+}
+
+function openTestModal() {
+  const modal = document.getElementById('test-modal');
+  modal.classList.add('active');
+  document.getElementById('test-user-prompt').focus();
+}
+
+function closeTestModal() {
+  const modal = document.getElementById('test-modal');
+  modal.classList.remove('active');
+  document.getElementById('test-result').style.display = 'none';
+}
+
+async function runAITest() {
+  const systemPrompt = document.getElementById('test-system-prompt').value;
+  const userPrompt = document.getElementById('test-user-prompt').value;
+  const temperature = parseFloat(document.getElementById('test-temperature').value);
+  const resultDiv = document.getElementById('test-result');
+  const runBtn = document.getElementById('run-test');
+
+  if (!userPrompt.trim()) {
+    alert('Please enter a user prompt');
+    return;
+  }
+
+  runBtn.disabled = true;
+  runBtn.textContent = 'Running...';
+  resultDiv.style.display = 'none';
+
+  try {
+    const result = await executePromptAI({
+      systemPrompt: systemPrompt || undefined,
+      userPrompt,
+      temperature
+    });
+
+    resultDiv.textContent = result;
+    resultDiv.style.display = 'block';
+    addLog('✅ AI test successful', 'success');
+
+    anime({
+      targets: resultDiv,
+      opacity: [0, 1],
+      translateY: [10, 0],
+      duration: 400,
+      easing: 'easeOutQuad'
+    });
+  } catch (error) {
+    resultDiv.textContent = `Error: ${error.message}`;
+    resultDiv.style.display = 'block';
+    addLog(`❌ AI test failed: ${error.message}`, 'error');
+  } finally {
+    runBtn.disabled = false;
+    runBtn.textContent = 'Run Test';
+  }
+}
+
+// ===========================
+// Workflows Management
+// ===========================
+
+async function loadWorkflows() {
+  // This will be implemented by workflow-manager.js
+  // For now, just update the count
+  updateWorkflowCount(0);
+}
+
+function updateWorkflowCount(count) {
+  const countEl = document.getElementById('workflow-count');
+  if (countEl) {
+    countEl.textContent = `${count} Active`;
+  }
+}
+
+// ===========================
+// Dashboard Stats
+// ===========================
+
+function updateDashboardStats() {
+  // Update session count
+  const sessionCount = document.getElementById('session-count');
+  if (sessionCount) {
+    sessionCount.textContent = '0 Active';
+  }
+}
+
+// ===========================
+// Activity Log
+// ===========================
+
 function addLog(message, type = 'info') {
   const logDiv = document.getElementById('activity-log');
+  if (!logDiv) return;
+
   const entry = document.createElement('div');
   entry.className = `log-entry ${type}`;
   
   const timestamp = new Date().toLocaleTimeString();
-  entry.innerHTML = `<span class="timestamp">${timestamp}</span>${message}`;
+  entry.innerHTML = `<span class="log-time">${timestamp}</span><span class="log-message">${message}</span>`;
   
   logDiv.appendChild(entry);
+  
+  // Animate new entry
+  anime({
+    targets: entry,
+    opacity: [0, 1],
+    translateX: [-20, 0],
+    duration: 300,
+    easing: 'easeOutQuad'
+  });
   
   // Keep only last 50 entries
   while (logDiv.children.length > 50) {
@@ -365,7 +630,21 @@ function addLog(message, type = 'info') {
   logDiv.scrollTop = logDiv.scrollHeight;
 }
 
-// Warn user before closing
+// ===========================
+// Refresh Status
+// ===========================
+
+document.getElementById('refresh-status')?.addEventListener('click', async () => {
+  addLog('🔄 Refreshing status...', 'info');
+  await checkAIAvailability();
+  updateDashboardStats();
+  addLog('✅ Status refreshed', 'success');
+});
+
+// ===========================
+// Warn before closing
+// ===========================
+
 window.addEventListener('beforeunload', (event) => {
   if (isAiAvailable) {
     event.preventDefault();
@@ -373,5 +652,4 @@ window.addEventListener('beforeunload', (event) => {
   }
 });
 
-console.log('Chrome AI Web App loaded');
-
+console.log('Chrome AI Automation Platform loaded');
