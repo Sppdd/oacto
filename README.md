@@ -6,197 +6,136 @@ Transform Chrome's built-in AI APIs into professional n8n nodes for **local-firs
 
 A complete system that brings Chrome's on-device AI (Gemini Nano) to n8n workflows:
 - **7 n8n nodes** for Chrome AI APIs (Prompt, Writer, Summarizer, Translator, Rewriter, Proofreader, Language Detector)
-- **Bridge server** connecting n8n to Chrome extension
-- **Chrome extension** executing AI in browser context
+- **Web app** that runs in Chrome (no extension needed!)
+- **Simple architecture** - Just open a webpage
 - **100% local** - zero external API calls
 
-## 🏗️ Architecture
+## 🏗️ Architecture (Simplified!)
 
 ```
 n8n Workflow (localhost:5678)
     ↓ HTTP REST API
-Bridge Server (localhost:3333)
+Web App Server (localhost:3333)
     ↓ WebSocket
-Chrome Extension
-    ↓ Browser APIs
+Web App Page (open in Chrome)
+    ↓ window.ai.*
 Chrome Built-in AI (Gemini Nano)
 ```
+
+**No browser extension needed!** Just keep a tab open.
 
 ## 📦 Project Structure
 
 ```
-packages/
-├── n8n-nodes-chrome-ai/     # NPM package for n8n
-│   ├── nodes/               # 7 AI nodes
-│   ├── credentials/         # Bridge authentication
-│   └── utils/               # Client library
+Journal.dev/
+├── webapp/                  # Simple web app (NO extension!)
+│   ├── server.js           # HTTP + WebSocket server
+│   └── public/             # Web app UI
+│       ├── index.html      # Beautiful dashboard
+│       ├── app.js          # Chrome AI executor
+│       ├── styles.css      # Modern UI
+│       └── icon*.png       # Icons
 │
-└── chrome-extension/        # Chrome extension + bridge
-    ├── server/              # Node.js bridge server
-    ├── background/          # WebSocket client
-    ├── content/             # AI execution
-    └── popup/               # Status UI
+├── packages/n8n-nodes-chrome-ai/  # NPM package for n8n
+│   ├── nodes/              # 7 AI nodes
+│   ├── credentials/        # Bridge authentication
+│   └── utils/              # Client library
+│
+├── examples/               # Ready-to-import workflows
+└── docs/                   # Documentation
 ```
 
-## 🚀 Quick Start
+## 🚀 Quick Start (3 Steps!)
 
-### 1. Install n8n Nodes
+### 0. Enable Chrome AI (5 mins)
 
-```bash
-cd packages/n8n-nodes-chrome-ai
-npm install
-npm run build
-
-# Link locally for testing
-npm link
-
-# In your n8n installation
-cd ~/.n8n/custom
-npm link n8n-nodes-chrome-ai
-
-# Restart n8n
+```
+1. Join Chrome AI Early Preview Program: https://goo.gle/chrome-ai-dev-preview-join
+2. Enable flags in chrome://flags:
+   - "Prompt API for Gemini Nano" → Enable
+   - "Enables optimization guide on device" → Enable
+3. Restart Chrome
+4. Download model in chrome://components/:
+   - Find "Optimization Guide On Device Model"
+   - Click "Check for update"
+   - Wait 5-10 minutes for ~1.5GB download
+5. Restart Chrome when download completes
 ```
 
-### 2. Start Bridge Server
+**Verify**: Open console (F12), type `LanguageModel` → should see constructor function
+
+### 1. Start Web App
 
 ```bash
-cd packages/chrome-extension/server
+cd webapp
 npm install
 npm start
 ```
 
-You should see:
+### 2. Open in Chrome
+
 ```
-🚀 Chrome AI Bridge Server
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📡 HTTP Server: http://localhost:3333
-🔌 WebSocket:   ws://localhost:3334
+http://localhost:3333
 ```
 
-### 3. Load Chrome Extension
+Keep this tab open (minimize is fine, just don't close it)
 
-1. Open Chrome: `chrome://extensions/`
-2. Enable "Developer mode"
-3. Click "Load unpacked"
-4. Select: `packages/chrome-extension/`
-5. Extension connects automatically ✅
+### 3. Install n8n Nodes
 
-### 4. Enable Chrome AI
+```bash
+cd packages/n8n-nodes-chrome-ai
+npm install && npm run build && npm link
 
-1. Go to `chrome://flags`
-2. Enable "Prompt API for Gemini Nano"
-3. Enable "Enables optimization guide on device"
-4. Restart Chrome
-5. Wait for model download (~1.5GB)
+mkdir -p ~/.n8n/custom
+cd ~/.n8n/custom
+npm link n8n-nodes-chrome-ai
 
-### 5. Configure n8n
+# Start n8n
+n8n start
+```
 
-1. Open n8n: `http://localhost:5678`
-2. Create new credentials: "Chrome AI API"
-3. Bridge URL: `http://localhost:3333`
-4. Save credentials
+### 4. Configure in n8n
 
-### 6. Create Your First Workflow
+```
+1. n8n → Credentials → Chrome AI API
+2. Bridge URL: http://localhost:3333
+3. Test connection → ✅ Success!
+```
 
-1. Add node: "Chrome Prompt AI"
-2. Select credentials
-3. Enter prompt: "Write a haiku about automation"
-4. Execute! 🎉
+That's it! Create workflows with Chrome AI nodes.
 
 ## 📝 Example Workflows
 
 ### Simple AI Generation
 ```
-Manual Trigger
-  → Chrome Prompt AI ("Write a blog post about...")
-  → Email (send result)
+Manual Trigger → Chrome Prompt AI → Email
 ```
 
-### Content Translation Pipeline
+### Content Pipeline
 ```
-RSS Feed
-  → Chrome Summarizer (condense article)
-  → Chrome Translator (EN → ES)
-  → Twitter (post translated summary)
+RSS Feed → Summarizer → Rewriter → Proofreader → Twitter
 ```
 
-### Smart Email Assistant
+### Multilingual Support
 ```
-Gmail Trigger (new email)
-  → Chrome Summarizer (TL;DR)
-  → Chrome Prompt AI (draft reply)
-  → Chrome Proofreader (polish)
-  → Gmail (send draft)
+Webhook → Language Detector → IF → Translator → Process
 ```
-
-## 🔧 Development
-
-### n8n Nodes
-
-```bash
-cd packages/n8n-nodes-chrome-ai
-npm run dev      # Watch mode
-npm run build    # Production build
-npm run lint     # Check code
-```
-
-### Bridge Server
-
-```bash
-cd packages/chrome-extension/server
-npm run dev      # Nodemon auto-restart
-```
-
-### Chrome Extension
-
-1. Make changes to extension files
-2. Go to `chrome://extensions/`
-3. Click refresh icon on extension
-4. Changes applied instantly
 
 ## 📚 Available Nodes
 
-### 1. Chrome Prompt AI
-- Full-featured LLM (Gemini Nano)
-- System prompts
-- Temperature control
-- Variable interpolation
-
-### 2. Chrome Writer
-- Generate text with specific tone/length
-- Options: formal, neutral, casual
-- Formats: plain-text, markdown
-
-### 3. Chrome Summarizer
-- Condense long text
-- Types: tl;dr, key-points, teaser, headline
-- Configurable length
-
-### 4. Chrome Translator
-- Translate between languages
-- Auto-detect source language
-- On-device translation
-
-### 5. Chrome Rewriter
-- Rephrase text
-- Adjust tone and length
-- Maintain meaning
-
-### 6. Chrome Proofreader
-- Fix grammar and spelling
-- Improve clarity
-- Professional polish
-
-### 7. Chrome Language Detector
-- Detect text language
-- Returns language code
-- Confidence scores
+1. **Chrome Prompt AI** - Full LLM with system prompts
+2. **Chrome Writer** - Generate text with tone/length control
+3. **Chrome Summarizer** - Condense long text
+4. **Chrome Translator** - Translate languages on-device
+5. **Chrome Rewriter** - Rephrase with tone adjustments
+6. **Chrome Proofreader** - Fix grammar and spelling
+7. **Chrome Language Detector** - Identify text language
 
 ## 🔒 Privacy & Security
 
 ✅ **100% Local Processing**
 - AI runs on-device (Gemini Nano)
-- Bridge server runs on localhost
+- Web app runs on localhost
 - No external API calls
 - No data leaves your machine
 
@@ -212,60 +151,55 @@ npm run dev      # Nodemon auto-restart
 
 ## 🐛 Troubleshooting
 
-### Bridge Server Won't Start
+### "Web app not connected"
+1. Start server: `cd webapp && npm start`
+2. Open http://localhost:3333 in Chrome
+3. Keep tab open
+
+### "AI not available"
+1. Join Chrome AI Early Preview Program: https://goo.gle/chrome-ai-dev-preview-join
+2. Enable flags in chrome://flags
+3. Download model from chrome://components/
+4. Refresh web app page
+
+### Nodes don't appear in n8n
 ```bash
-# Check if port is in use
-lsof -i :3333
-
-# Kill process if needed
-kill -9 <PID>
-```
-
-### Extension Won't Connect
-1. Check bridge server is running
-2. Check console: `chrome://extensions/` → "service worker"
-3. Reload extension
-
-### AI Not Available
-1. Enable flags in `chrome://flags`
-2. Check model download: `chrome://components/`
-3. Wait for "Optimization Guide On Device Model" to finish
-4. Test: Open console, type `window.ai`
-
-### n8n Nodes Not Showing
-```bash
-# Check if package is built
 cd packages/n8n-nodes-chrome-ai
-ls dist/  # Should show .js files
-
-# If dist/ is empty, rebuild
 npm run build
-
-# Check if package is linked
-cd ~/.n8n/custom
-npm list
-# Should show n8n-nodes-chrome-ai
-
-# If not linked, link it
-npm link n8n-nodes-chrome-ai
-
-# Restart n8n completely
-pkill n8n
-n8n start
+npm link
+cd ~/.n8n/custom && npm link n8n-nodes-chrome-ai
+pkill n8n && n8n start
 ```
 
 ## 📖 Documentation
 
-See detailed plan: [`N8N-CHROME-AI-REFACTOR-PLAN.md`](./N8N-CHROME-AI-REFACTOR-PLAN.md)
+- **Quick Start**: `WEBAPP-QUICKSTART.md` (5 mins!)
+- **Web App Details**: `webapp/README.md`
+- **Node Reference**: `docs/NODE-REFERENCE.md`
+- **Troubleshooting**: `docs/TROUBLESHOOTING.md`
+- **Architecture**: `docs/ARCHITECTURE.md`
+
+## ✨ Why Web App > Extension?
+
+| Aspect | Extension | Web App |
+|--------|-----------|---------|
+| Setup | Load unpacked, manifest, etc. | Open URL |
+| Debug | Service worker console | Regular DevTools |
+| Installation | 5+ steps | 1 step |
+| Updates | Reload extension | Refresh page |
+| Complexity | High | Low |
+
+**Result:** Same functionality, 90% simpler! 🎉
 
 ## 🎯 Roadmap
 
+- [x] Web app architecture
+- [x] All 7 AI APIs integrated
+- [x] Status dashboard
+- [x] Activity logging
 - [ ] Publish to NPM
-- [ ] Chrome Web Store
-- [ ] More AI nodes (as Chrome adds APIs)
-- [ ] Workflow templates
 - [ ] Docker setup
-- [ ] CI/CD pipeline
+- [ ] More AI nodes (as Chrome adds APIs)
 
 ## 🤝 Contributing
 
@@ -279,5 +213,4 @@ MIT
 
 **Built with ❤️ to make local AI automation accessible to everyone**
 
-*No API keys. No subscriptions. No data collection. Just powerful automation.*
-
+*No extension. No complexity. Just powerful automation.* 🚀

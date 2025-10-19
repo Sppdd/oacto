@@ -44,7 +44,15 @@ npm --version
 7. Click "Relaunch" button
 ```
 
-### Step 3: Download AI Model
+### Step 3: Join Early Preview Program
+
+```
+1. Visit: https://goo.gle/chrome-ai-dev-preview-join
+2. Join the Chrome AI Early Preview Program
+3. This enables access to the experimental APIs
+```
+
+### Step 4: Download AI Model
 
 ```
 1. Go to: chrome://components/
@@ -55,17 +63,17 @@ npm --version
 6. Restart Chrome when complete
 ```
 
-### Step 4: Verify AI Works
+### Step 5: Verify AI Works
 
 ```
 1. Open any webpage
 2. Press F12 (DevTools)
 3. Go to Console tab
-4. Type: window.ai
-5. Should see an object (not undefined)
+4. Type: LanguageModel
+5. Should see constructor function (not undefined)
 
 Test further:
-const session = await window.ai.languageModel.create();
+const session = await LanguageModel.create();
 const result = await session.prompt("Say hello");
 console.log(result);
 
@@ -274,16 +282,17 @@ chrome://extensions/
 ### "AI not available"
 
 ```
-1. chrome://components/
-2. Optimization Guide version should NOT be "0.0.0.0"
-3. If it is, click "Check for update" and wait
-4. Restart Chrome when download completes
+1. Join Chrome AI Early Preview Program: https://goo.gle/chrome-ai-dev-preview-join
+2. chrome://components/
+3. Optimization Guide version should NOT be "0.0.0.0"
+4. If it is, click "Check for update" and wait
+5. Restart Chrome when download completes
 ```
 
 **Test manually:**
 ```javascript
 // In any page console
-window.ai.languageModel.create().then(s => s.prompt("hi"))
+LanguageModel.create().then(s => s.prompt("hi"))
 ```
 
 ### Nodes don't appear in n8n

@@ -1,8 +1,9 @@
-// Chrome AI Bridge Server
-// Connects n8n (HTTP) to Chrome Extension (WebSocket)
+// Chrome AI Web App Server
+// Serves web app UI and provides HTTP API for n8n
 
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const WebSocket = require('ws');
 
 const app = express();
@@ -12,15 +13,18 @@ const WS_PORT = 3334;
 app.use(cors());
 app.use(express.json());
 
-// WebSocket server for Chrome Extension connection
-let extensionWs = null;
+// Serve static files (web app UI)
+app.use(express.static(path.join(__dirname, 'public')));
+
+// WebSocket server for web app communication
+let webAppWs = null;
 const pendingRequests = new Map();
 
 const wss = new WebSocket.Server({ port: WS_PORT });
 
 wss.on('connection', (ws) => {
-  console.log('✅ Chrome Extension connected');
-  extensionWs = ws;
+  console.log('✅ Web app connected');
+  webAppWs = ws;
 
   ws.on('message', (data) => {
     const response = JSON.parse(data.toString());
@@ -35,8 +39,8 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    console.log('❌ Chrome Extension disconnected');
-    extensionWs = null;
+    console.log('❌ Web app disconnected');
+    webAppWs = null;
   });
 
   ws.on('error', (error) => {
@@ -44,10 +48,10 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Helper to send request to extension
-async function callExtension(action, params, timeout = 30000) {
-  if (!extensionWs) {
-    throw new Error('Chrome extension not connected');
+// Helper to send request to web app
+async function callWebApp(action, params, timeout = 30000) {
+  if (!webAppWs) {
+    throw new Error('Web app not connected. Please open http://localhost:3333 in Chrome');
   }
 
   const id = Date.now() + Math.random();
@@ -65,15 +69,15 @@ async function callExtension(action, params, timeout = 30000) {
       }
     });
 
-    extensionWs.send(JSON.stringify({ id, action, params }));
+    webAppWs.send(JSON.stringify({ id, action, params }));
   });
 }
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
-    status: extensionWs ? 'ok' : 'no-extension',
-    message: extensionWs ? 'Chrome AI bridge ready' : 'Chrome extension not connected',
+    status: webAppWs ? 'ok' : 'no-webapp',
+    message: webAppWs ? 'Chrome AI web app ready' : 'Web app not connected. Open http://localhost:3333 in Chrome',
     timestamp: new Date().toISOString(),
   });
 });
@@ -90,7 +94,7 @@ app.post('/api/prompt-ai', async (req, res) => {
       });
     }
 
-    const response = await callExtension('promptAI', {
+    const response = await callWebApp('promptAI', {
       systemPrompt,
       userPrompt,
       temperature: temperature || 0.8,
@@ -127,7 +131,7 @@ app.post('/api/writer', async (req, res) => {
       });
     }
 
-    const response = await callExtension('writer', {
+    const response = await callWebApp('writer', {
       prompt,
       tone,
       format,
@@ -165,7 +169,7 @@ app.post('/api/summarizer', async (req, res) => {
       });
     }
 
-    const response = await callExtension('summarizer', {
+    const response = await callWebApp('summarizer', {
       text,
       type,
       format,
@@ -203,7 +207,7 @@ app.post('/api/translator', async (req, res) => {
       });
     }
 
-    const response = await callExtension('translator', {
+    const response = await callWebApp('translator', {
       text,
       sourceLanguage,
       targetLanguage,
@@ -240,7 +244,7 @@ app.post('/api/rewriter', async (req, res) => {
       });
     }
 
-    const response = await callExtension('rewriter', {
+    const response = await callWebApp('rewriter', {
       text,
       tone,
       format,
@@ -278,7 +282,7 @@ app.post('/api/proofreader', async (req, res) => {
       });
     }
 
-    const response = await callExtension('proofreader', { text });
+    const response = await callWebApp('proofreader', { text });
 
     if (response.success) {
       res.json({
@@ -311,7 +315,7 @@ app.post('/api/language-detector', async (req, res) => {
       });
     }
 
-    const response = await callExtension('languageDetector', { text });
+    const response = await callWebApp('languageDetector', { text });
 
     if (response.success) {
       res.json({
@@ -335,17 +339,17 @@ app.post('/api/language-detector', async (req, res) => {
 // Start HTTP server
 app.listen(HTTP_PORT, () => {
   console.log('');
-  console.log('🚀 Chrome AI Bridge Server');
+  console.log('🚀 Chrome AI Web App Server');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(`📡 HTTP Server: http://localhost:${HTTP_PORT}`);
   console.log(`🔌 WebSocket:   ws://localhost:${WS_PORT}`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('');
-  console.log('Waiting for Chrome extension to connect...');
+  console.log('🌐 Open in Chrome: http://localhost:3333');
   console.log('');
   console.log('Next steps:');
-  console.log('1. Load Chrome extension in chrome://extensions/');
-  console.log('2. Extension will auto-connect to this server');
+  console.log('1. Open http://localhost:3333 in Chrome');
+  console.log('2. Keep this tab open');
   console.log('3. Use n8n nodes with bridge URL: http://localhost:3333');
   console.log('');
 });

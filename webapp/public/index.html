@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark light">
+  <meta http-equiv="origin-trial" content="AoXwZGsUZlGEyuueX5nR6tujynrCfWhNWQnZcHTy3AZkXtCMULt/UJs6+/1Bp5jVw7Ue96Tcyf1IO8IRUMimAgcAAABeeyJvcmlnaW4iOiJodHRwczovL2Nocm9tZS5kZXY6NDQzIiwiZmVhdHVyZSI6IkFJUHJvbXB0QVBJTXVsdGltb2RhbElucHV0IiwiZXhwaXJ5IjoxNzc0MzEwNDAwfQ==">
+  <title>Chrome AI Bridge for n8n</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" type="image/png" sizes="128x128" href="icon128.png">
+  <link rel="icon" type="image/png" sizes="48x48" href="icon48.png">
+  <link rel="icon" type="image/png" sizes="24x24" href="icon24.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="icon16.png">
+  <script>
+    if (!isSecureContext) location.protocol = "https:";
+  </script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <img src="icon48.png" alt="Chrome AI" class="header-icon">
+      <div class="header-content">
+        <h1>🤖 Chrome AI Bridge</h1>
+        <p class="subtitle">for n8n - Web App Edition</p>
+      </div>
+    </header>
+
+    <div class="status-section">
+      <h2>Connection Status</h2>
+      
+      <div class="status-card">
+        <div class="status-row">
+          <span class="label">Server Connection</span>
+          <span class="status" id="server-status">
+            <span class="indicator checking"></span>
+            <span class="text">Connecting...</span>
+          </span>
+        </div>
+        
+        <div class="status-row">
+          <span class="label">Chrome AI</span>
+          <span class="status" id="ai-status">
+            <span class="indicator checking"></span>
+            <span class="text">Checking...</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="info-section">
+      <h2>n8n Configuration</h2>
+      <div class="info-card">
+        <p class="label">Bridge URL:</p>
+        <div class="code-block">http://localhost:3333</div>
+        <p class="hint">Use this URL in your n8n Chrome AI credentials</p>
+      </div>
+    </div>
+
+    <div class="test-section">
+      <h2>Test AI</h2>
+      <div class="test-card">
+        <textarea id="test-prompt" placeholder="Enter a test prompt... e.g., 'Write a haiku about automation'"></textarea>
+        <button id="test-button" class="primary-button" disabled>Test Prompt AI</button>
+        <div id="test-result" class="test-result hidden"></div>
+      </div>
+    </div>
+
+    <div class="log-section">
+      <h2>Activity Log</h2>
+      <div id="activity-log" class="activity-log">
+        <div class="log-entry">Server started. Waiting for n8n requests...</div>
+      </div>
+    </div>
+
+    <div class="instructions">
+      <h2>Quick Start</h2>
+      <ol>
+        <li>✅ Keep this tab open (minimized is fine)</li>
+        <li>Start n8n: <code>n8n start</code></li>
+        <li>Create workflow with Chrome AI nodes</li>
+        <li>Execute and watch the magic happen!</li>
+      </ol>
+      
+      <div class="important-note">
+        <strong>⚠️ Important:</strong> Do not close this tab. The AI only works while this page is open in Chrome.
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
+

@@ -5,14 +5,19 @@ Get up and running in 10 minutes!
 ## Step 1: Enable Chrome AI (5 mins)
 
 ```
-1. Open Chrome (127+)
-2. Go to: chrome://flags
-3. Search: "Prompt API for Gemini Nano"
-4. Enable + Restart
-5. Wait for model download (~2GB)
+1. Join Chrome AI Early Preview Program: https://goo.gle/chrome-ai-dev-preview-join
+2. Enable flags in chrome://flags:
+   - "Prompt API for Gemini Nano" → Enable
+   - "Enables optimization guide on device" → Enable
+3. Restart Chrome
+4. Download model in chrome://components/:
+   - Find "Optimization Guide On Device Model"
+   - Click "Check for update"
+   - Wait 5-10 minutes for ~1.5GB download
+5. Restart Chrome when download completes
 ```
 
-**Verify**: Open console (F12), type `window.ai` → should see object
+**Verify**: Open console (F12), type `LanguageModel` → should see constructor function
 
 ## Step 2: Start Bridge Server (1 min)
 
@@ -122,6 +127,7 @@ You should see an AI-generated haiku! 🎉
 - Start bridge server: `npm start` in server/
 
 **"AI not available"**
+- Join Chrome AI Early Preview Program: https://goo.gle/chrome-ai-dev-preview-join
 - Check: `chrome://components/`
 - Model should be downloaded
 

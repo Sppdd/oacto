@@ -1,226 +1,189 @@
-# 🎉 Welcome to Chrome AI × n8n Integration!
+# 🎉 Welcome to Chrome AI × n8n Web App!
 
 ## What You Just Built
 
-A **professional-grade system** that brings Chrome's built-in AI (Gemini Nano) to n8n workflows:
+A **super-simple system** that brings Chrome's built-in AI (Gemini Nano) to n8n workflows:
 
-✅ **7 n8n nodes** - All Chrome AI APIs
-✅ **Bridge server** - Connects n8n to Chrome
-✅ **Chrome extension** - Executes AI locally
-✅ **Example workflows** - Ready to import
-✅ **Complete documentation** - Setup to deployment
+✅ **Web app** - No extension needed!  
+✅ **7 n8n nodes** - All Chrome AI APIs  
+✅ **Beautiful UI** - Status dashboard + activity log  
+✅ **100% local** - Private, fast, free  
 
 ## 🚀 Get Started in 3 Steps
 
-### 1. Enable Chrome AI
+### 1. Enable Chrome AI (5 mins)
 
 ```
-chrome://flags → "Prompt API for Gemini Nano" → Enable → Restart
-chrome://components/ → Download model → Wait 5 mins
+1. Join Chrome AI Early Preview Program: https://goo.gle/chrome-ai-dev-preview-join
+2. Enable flags in chrome://flags:
+   - "Prompt API for Gemini Nano" → Enable
+   - "Enables optimization guide on device" → Enable
+3. Restart Chrome
+4. Download model in chrome://components/:
+   - Find "Optimization Guide On Device Model"
+   - Click "Check for update"
+   - Wait 5-10 minutes for ~1.5GB download
+5. Restart Chrome when download completes
 ```
 
-### 2. Start Everything
+### 2. Start Web App (1 min)
 
 ```bash
-# Terminal 1: Bridge Server
-cd packages/chrome-extension/server
-npm install && npm start
-
-# Terminal 2: n8n
-npm install -g n8n  # if needed
-n8n start
-
-# Chrome: Load extension
-chrome://extensions/ → Load unpacked → packages/chrome-extension/
+cd webapp
+npm install
+npm start
 ```
 
-### 3. Install & Test
+### 3. Open in Chrome (30 seconds)
+
+```
+Navigate to: http://localhost:3333
+Keep this tab open!
+```
+
+You should see:
+- ✅ Server Connection: Connected
+- ✅ Chrome AI: Ready
+
+## Test It!
+
+In the web app dashboard:
+1. Enter: "Write a haiku about automation"
+2. Click "Test Prompt AI"
+3. See AI-generated haiku! 🎉
+
+## Setup n8n
 
 ```bash
-# Install n8n nodes
+# Install nodes
 cd packages/n8n-nodes-chrome-ai
 npm install && npm run build && npm link
-cd ~/.n8n/custom && npm link n8n-nodes-chrome-ai
 
-# Restart n8n
-pkill n8n && n8n start
+# Link in n8n
+mkdir -p ~/.n8n/custom
+cd ~/.n8n/custom
+npm link n8n-nodes-chrome-ai
 
-# Test in n8n (http://localhost:5678)
-1. Create credentials: "Chrome AI API"
-2. Create workflow: Manual → Chrome Prompt AI
-3. Execute!
+# Start n8n
+n8n start
 ```
+
+In n8n (http://localhost:5678):
+1. Credentials → Chrome AI API
+2. Bridge URL: http://localhost:3333
+3. Create workflow → Add Chrome Prompt AI node
+4. Execute! ✨
 
 ## 📁 Project Structure
 
 ```
-Journal.dev/
-├── packages/
-│   ├── n8n-nodes-chrome-ai/     # NPM package (publishable!)
-│   │   ├── nodes/               # 7 AI nodes
-│   │   ├── credentials/         # Bridge auth
-│   │   └── utils/               # Client library
-│   │
-│   └── chrome-extension/        # Chrome extension
-│       ├── server/              # Bridge server (Node.js)
-│       ├── background/          # WebSocket client
-│       ├── content/             # AI executor
-│       └── popup/               # Status UI
-│
-├── examples/                    # Ready-to-import workflows
-│   ├── 01-simple-ai-haiku.json
-│   ├── 02-content-pipeline.json
-│   └── 03-multilingual-workflow.json
-│
-├── docs/                        # Comprehensive documentation
-│   ├── SETUP.md                 # Complete setup guide
-│   ├── NODE-REFERENCE.md        # All nodes documented
-│   ├── TESTING.md               # Testing procedures
-│   ├── ARCHITECTURE.md          # Technical deep-dive
-│   └── TROUBLESHOOTING.md       # Problem solutions
-│
-├── README.md                    # Main documentation
-├── QUICKSTART.md                # 10-minute setup
-└── N8N-CHROME-AI-REFACTOR-PLAN.md  # Original plan
+webapp/                        # ⭐ Web app (new & simple!)
+├── server.js                  # HTTP + WebSocket server
+├── package.json              # Dependencies
+└── public/                   # Web interface
+    ├── index.html            # Status dashboard
+    ├── app.js                # Chrome AI executor
+    ├── styles.css            # Beautiful UI
+    └── icon*.png             # Icons
+
+packages/n8n-nodes-chrome-ai/  # n8n nodes (unchanged)
+├── nodes/                     # 7 AI nodes
+├── credentials/              # Credentials
+└── utils/                    # Client library
+
+examples/                      # Example workflows
+docs/                         # Documentation
 ```
 
 ## 📚 Documentation
 
-Choose your path:
+- **Web App Guide**: `webapp/README.md`
+- **Node Reference**: `docs/NODE-REFERENCE.md`
+- **Troubleshooting**: `docs/TROUBLESHOOTING.md`
+- **Architecture**: `docs/ARCHITECTURE.md`
 
-- **First time?** → `QUICKSTART.md` (10 mins)
-- **Complete setup** → `docs/SETUP.md` (detailed)
-- **Learn nodes** → `docs/NODE-REFERENCE.md`
-- **Having issues?** → `docs/TROUBLESHOOTING.md`
-- **Want details?** → `docs/ARCHITECTURE.md`
-- **Testing?** → `docs/TESTING.md`
+## 🎯 What's Different?
 
-## 🎯 What's Included
+### Old Approach (Extension):
+- ❌ Complex manifest V3 setup
+- ❌ Service worker + content script coordination
+- ❌ Extension installation steps
+- ❌ Harder to debug
 
-### n8n Nodes (All 7 Chrome AI APIs)
+### New Approach (Web App):
+- ✅ Just open a webpage
+- ✅ Direct window.ai access
+- ✅ Regular browser DevTools
+- ✅ Super simple!
 
-1. **Chrome Prompt AI** - Full LLM (Gemini Nano)
-2. **Chrome Writer** - Generate text with tone/length
-3. **Chrome Summarizer** - Condense long text
-4. **Chrome Translator** - Translate languages
-5. **Chrome Rewriter** - Rephrase with different tone
-6. **Chrome Proofreader** - Fix grammar/spelling
-7. **Chrome Language Detector** - Identify language
+**Same power, 90% simpler!** 🚀
 
-### Example Workflows
+## Daily Usage
 
-Import these in n8n:
-- **Simple AI Haiku** - Test Prompt API
-- **Content Pipeline** - Summarize → Rewrite → Proofread
-- **Multilingual** - Detect → Translate → Process
+```bash
+# Terminal 1: Web app
+cd webapp && npm start
 
-### Infrastructure
+# Terminal 2: n8n
+n8n start
 
-- **Bridge Server** - HTTP + WebSocket bridge
-- **Chrome Extension** - AI executor
-- **Complete Docs** - Professional documentation
+# Chrome: Open http://localhost:3333
+# Keep tab open (minimize is fine)
+# Build workflows in n8n!
+```
+
+## 💡 Key Feature: Activity Log
+
+The web app shows real-time activity:
+- 📨 When n8n sends requests
+- ✅ When AI responds successfully
+- ❌ When errors occur
+
+Perfect for debugging!
 
 ## 🔒 Privacy & Security
 
-✅ **100% Local** - All AI runs on your machine
-✅ **No External Calls** - Zero network requests outside localhost
-✅ **No API Keys** - Chrome AI is free
-✅ **No Telemetry** - No tracking or logging
-✅ **Open Source** - Audit all code yourself
-
-## 💡 Use Cases
-
-Perfect for:
-- 📧 **Email Automation** - Draft, summarize, translate
-- 📱 **Social Media** - Generate posts with different tones
-- 📝 **Content Creation** - Write, edit, proofread
-- 🌍 **Multilingual** - Translate and localize
-- 📊 **Data Processing** - Summarize, extract, analyze
-- 🤖 **AI Workflows** - Chain multiple AI operations
-
-## 🚀 Next Steps
-
-### Try It Now
-
-1. **Start services** (see above)
-2. **Import example** (`examples/01-simple-ai-haiku.json`)
-3. **Execute workflow** in n8n
-4. **See AI magic** happen locally!
-
-### Build Something
-
-Ideas to get started:
-- Auto-summarize RSS feeds
-- Translate incoming emails
-- Generate social media posts
-- Proofread all outgoing messages
-- Create multilingual content
-
-### Publish (Optional)
-
-```bash
-# Publish to NPM
-cd packages/n8n-nodes-chrome-ai
-npm publish
-
-# Submit to Chrome Web Store
-# Follow: https://developer.chrome.com/docs/webstore/publish/
-```
+✅ **100% Local** - All AI runs on your machine  
+✅ **No External Calls** - Everything on localhost  
+✅ **No API Keys** - Chrome AI is free  
+✅ **Open Source** - Audit all code  
 
 ## ⚡ Quick Commands
 
 ```bash
-# Start everything
-cd packages/chrome-extension/server && npm start &
-n8n start &
+# Start web app
+cd webapp && npm start
 
-# Stop everything
-pkill node
-pkill n8n
+# Open in Chrome
+open http://localhost:3333
 
-# Check status
-curl http://localhost:3333/api/health  # Bridge
-curl http://localhost:5678/healthz      # n8n
+# Test server
+curl http://localhost:3333/api/health
 
-# Rebuild nodes
-cd packages/n8n-nodes-chrome-ai && npm run build
-
-# Reload extension
-# chrome://extensions/ → Click refresh icon
+# Start n8n
+n8n start
 ```
 
-## 📊 Stats
+## 🎉 Success Indicators
 
-- **Files Created**: 40+
-- **Lines of Code**: ~3,000+
-- **AI APIs Integrated**: 7
-- **Example Workflows**: 3
-- **Documentation Pages**: 8
-- **Dependencies**: Minimal (TypeScript, Express, axios)
-- **External API Calls**: 0
+You're all set if:
+- ✅ Web app shows "Connected" and "AI Ready"
+- ✅ Test button generates AI text
+- ✅ Activity log shows requests
+- ✅ n8n credentials test succeeds
+- ✅ Workflows execute successfully
 
-## 🎓 What You Learned
+## 🚀 Next Steps
 
-This project demonstrates:
-- n8n custom node development
-- Chrome Extension architecture (Manifest V3)
-- WebSocket communication
-- Bridge pattern for integration
-- TypeScript for professional packages
-- Privacy-first design
-- Local AI integration
-
-## 🎉 Success!
-
-You now have a **complete, professional system** for local AI automation!
-
-**Start experimenting** and build amazing workflows! 🚀
+1. **Import examples** from `examples/` folder
+2. **Create workflows** using Chrome AI nodes
+3. **Watch activity log** to see it working
+4. **Build amazing automations**!
 
 ---
 
-**Questions?** Check `docs/TROUBLESHOOTING.md` or the documentation files!
+**Ready to use NOW!** Just `cd webapp && npm start` then open http://localhost:3333 🎉
 
-**Want to contribute?** This is ready for open-source collaboration!
+**Questions?** See `webapp/README.md` for detailed setup!
 
-**Ready to publish?** Package is publication-ready for NPM and Chrome Web Store!
-
+**Want to learn?** Check `docs/` for comprehensive guides!
