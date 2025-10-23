@@ -1,0 +1,344 @@
+# Claude Code Development Prompt
+
+## Project Context
+
+You are working on the **Chrome AI Automation Platform** - an enterprise-grade automation platform that integrates Chrome's built-in AI (Gemini Nano) with n8n workflows.
+
+### Current Architecture
+```
+n8n Workflows (localhost:5678)
+    ↓ HTTP REST API
+Web App Server (localhost:3333)
+    ↓ WebSocket
+Web App Page (open in Chrome)
+    ↓ window.ai.*
+Chrome Built-in AI (Gemini Nano)
+```
+
+### Project Structure
+```
+Journal.dev/
+├── webapp/                     # Current web app (localhost:3333)
+│   ├── server.js              # HTTP + WebSocket server
+│   ├── package.json
+│   └── public/
+│       ├── index.html         # Animated dashboard
+│       ├── app.js             # Chrome AI executor
+│       └── styles.css
+│
+├── packages/n8n-nodes-chrome-ai/  # n8n integration (working)
+│   ├── nodes/                 # 7 AI nodes
+│   ├── credentials/
+│   └── utils/
+│
+├── examples/                  # n8n workflows
+└── docs/                      # Documentation
+```
+
+### What's Currently Working
+✅ 7 n8n nodes for Chrome AI APIs (Prompt, Writer, Summarizer, Translator, Rewriter, Proofreader, Language Detector)
+✅ Animated dashboard with workflow management
+✅ AI session management with persistent conversations
+✅ 100% local processing (no external APIs)
+✅ Web app at localhost:3333 that bridges n8n ↔ Chrome AI
+
+---
+
+## Development Task
+
+**Build a Chrome extension with side panel** that replaces/augments the web app functionality, providing seamless access to n8n workflows directly from the browser.
+
+### Core Requirements
+
+#### 1. Extension Architecture
+- **Side panel UI** (Chrome Side Panel API) for chat interface
+- **Context menus** for quick actions on selected text
+- **Badge notifications** for workflow execution status
+- **Static configuration** with customizable workflow mappings
+- **Direct webhook communication** with n8n (localhost:5678)
+
+#### 2. Key Features
+
+**Side Panel Chat Interface:**
+- Input field to receive user commands or highlighted text
+- Workflow selector dropdown (populated from static config)
+- "Run Workflow" button
+- Results display area with success/error messages
+- Session history (keep recent executions visible)
+
+**Context Menu Integration:**
+- Right-click selected text → "Send to Chrome AI Workflows"
+- Submenu showing configured workflows (e.g., "Summarize", "Translate", "Rewrite")
+- Clicking menu item → opens side panel with text pre-filled → user selects workflow
+
+**Badge Notifications:**
+- Show workflow execution status on extension icon
+- Green badge: Success
+- Red badge: Error
+- Number badge: Running workflows count
+
+**Settings Page:**
+- Configure workflow webhooks (name, webhook URL, description, icon)
+- Test webhook connections
+- Import/export configuration
+- Chrome AI status check (like current webapp)
+
+#### 3. Workflow Configuration Format
+```json
+{
+  "workflows": [
+    {
+      "id": "summarize",
+      "name": "Summarize Text",
+      "description": "Create a concise summary",
+      "webhookUrl": "http://localhost:5678/webhook/summarize",
+      "icon": "📝",
+      "contextMenu": true,
+      "acceptsSelection": true
+    },
+    {
+      "id": "translate-es",
+      "name": "Translate to Spanish",
+      "webhookUrl": "http://localhost:5678/webhook/translate-es",
+      "icon": "🇪🇸",
+      "contextMenu": true,
+      "acceptsSelection": true
+    },
+    {
+      "id": "chat-assist",
+      "name": "AI Chat Assistant",
+      "webhookUrl": "http://localhost:5678/webhook/chat",
+      "icon": "💬",
+      "contextMenu": false,
+      "acceptsSelection": false
+    }
+  ]
+}
+```
+
+#### 4. Data Flow
+```
+User Action (highlight text / type in side panel)
+    ↓
+Extension captures input + workflow selection
+    ↓
+POST to n8n webhook: { text: "...", metadata: {...} }
+    ↓
+n8n workflow executes (using Chrome AI nodes)
+    ↓
+Webhook returns response: { success: true, result: "...", error: null }
+    ↓
+Extension displays result in side panel + updates badge
+```
+
+#### 5. Chrome AI Integration
+- **Keep existing Chrome AI access** from webapp/public/app.js
+- Extension should also have direct `window.ai.*` access for:
+  - Intent detection (analyze user input to suggest workflows)
+  - Local pre-processing before sending to n8n
+  - Quick responses without n8n round-trip
+
+#### 6. Backward Compatibility
+- **Keep webapp functional** as settings/monitoring dashboard
+- Extension can optionally communicate with webapp server for:
+  - Workflow discovery
+  - Centralized logging
+  - AI session management
+- But extension should work **independently** if webapp is not running
+
+---
+
+## Technical Specifications
+
+### Manifest V3 Structure
+```json
+{
+  "manifest_version": 3,
+  "name": "Chrome AI Workflows",
+  "version": "1.0.0",
+  "description": "Run n8n workflows powered by Chrome AI",
+  "permissions": [
+    "sidePanel",
+    "contextMenus",
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "http://localhost:5678/*",
+    "http://localhost:3333/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_icon": "icons/icon128.png"
+  },
+  "options_page": "options.html"
+}
+```
+
+### File Structure
+```
+chrome-extension/
+├── manifest.json
+├── background.js           # Service worker (context menus, webhooks)
+├── sidepanel.html          # Chat interface
+├── sidepanel.js            # Side panel logic
+├── sidepanel.css           # Modern UI styling
+├── options.html            # Settings page
+├── options.js              # Settings logic
+├── config.js               # Default workflow config
+├── chromeai.js             # Chrome AI utilities (from webapp)
+├── icons/                  # Extension icons
+│   ├── icon16.png
+│   ├── icon48.png
+│   └── icon128.png
+└── README.md
+```
+
+### Key Components to Implement
+
+**background.js:**
+- Create context menus from workflow config
+- Handle context menu clicks → open side panel with data
+- Execute webhook POST requests
+- Manage badge updates
+- Handle messages from side panel
+
+**sidepanel.html/js:**
+- Chat-like interface with input field
+- Workflow selector dropdown
+- Display selected text (if passed from context menu)
+- Show execution results with animations
+- History of recent executions
+
+**options.html/js:**
+- CRUD interface for workflow configuration
+- Test webhook connections
+- Chrome AI status indicator
+- Import/export config as JSON
+
+**chromeai.js:**
+- Port Chrome AI utilities from `webapp/public/app.js`
+- Check AI availability
+- Create prompt sessions for intent detection
+- Streaming response handling
+
+---
+
+## Development Guidelines
+
+### 1. Maintain Existing Functionality
+- **DO NOT modify** `packages/n8n-nodes-chrome-ai/` (working n8n nodes)
+- **DO NOT break** existing webapp (keep as optional companion)
+- **REUSE** Chrome AI code from `webapp/public/app.js`
+
+### 2. Code Quality
+- Modern ES6+ JavaScript (async/await)
+- Clear error handling with user-friendly messages
+- Console logging for debugging
+- Comments explaining webhook flows
+
+### 3. UX Principles
+- **Fast feedback** - show "Running..." immediately
+- **Clear results** - format responses nicely
+- **Error recovery** - suggest fixes for common issues
+- **Minimal clicks** - right-click → select workflow → done
+
+### 4. Configuration Management
+- Store config in `chrome.storage.sync` (syncs across devices)
+- Provide sensible defaults
+- Allow JSON import/export for backup
+- Validate webhook URLs before saving
+
+### 5. Testing Checklist
+- [ ] Context menu appears on text selection
+- [ ] Side panel opens and receives selected text
+- [ ] Webhook POST succeeds and returns data
+- [ ] Badge updates on success/error
+- [ ] Settings page saves configuration
+- [ ] Chrome AI availability check works
+- [ ] Works without webapp running
+
+---
+
+## Example Workflows to Support
+
+Based on existing n8n nodes, create default config for:
+
+1. **Summarize** - `POST /webhook/summarize` with `{ text: "..." }`
+2. **Translate** - `POST /webhook/translate` with `{ text: "...", targetLang: "es" }`
+3. **Rewrite** - `POST /webhook/rewrite` with `{ text: "...", tone: "casual" }`
+4. **Proofread** - `POST /webhook/proofread` with `{ text: "..." }`
+5. **Chat** - `POST /webhook/chat` with `{ message: "...", sessionId: "..." }`
+
+---
+
+## Success Criteria
+
+Extension is complete when:
+
+✅ User can right-click text → run workflow → see result in side panel
+✅ User can type in side panel → select workflow → execute
+✅ Badge shows execution status (green/red/count)
+✅ Settings page allows adding custom workflows
+✅ Chrome AI integration works for intent detection
+✅ Works independently of webapp (but compatible with it)
+✅ Clean, modern UI matching webapp aesthetic
+✅ Comprehensive error handling
+
+---
+
+## Deliverables
+
+1. Complete Chrome extension in `chrome-extension/` directory
+2. README.md with:
+   - Installation instructions
+   - Configuration guide
+   - Example workflow setups
+   - Troubleshooting section
+3. Default config with 5 example workflows
+4. Settings page for customization
+
+---
+
+## Additional Context
+
+**Why this approach:**
+- User wants workflows accessible while browsing (not buried in n8n UI)
+- Static config is fine (workflows don't change frequently)
+- Side panel is better than popup (stays open, more space)
+- Context menus provide instant access
+- Extension works offline (just needs localhost n8n)
+
+**Design inspiration:**
+- Den browser's unified chat interface
+- Side panel for persistent access
+- Context menus for quick actions
+- Clean, minimal UI
+
+**Privacy:**
+- 100% local (n8n on localhost:5678)
+- No external API calls
+- Chrome AI runs on-device
+- User owns all data
+
+---
+
+## Get Started
+
+Begin by:
+1. Create `chrome-extension/` directory structure
+2. Implement manifest.json with required permissions
+3. Build basic side panel with chat interface
+4. Add context menu registration in background.js
+5. Implement webhook communication
+6. Port Chrome AI utilities from webapp
+7. Create settings page
+8. Polish UI and error handling
+
+**Current webapp can serve as reference** - especially `webapp/public/app.js` for Chrome AI integration patterns.
