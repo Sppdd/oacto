@@ -1,6 +1,7 @@
 // Chrome AI Web App Server
 // Serves web app UI and provides HTTP API for n8n
 
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -85,7 +86,7 @@ app.get('/api/health', (req, res) => {
 // Chrome Prompt AI endpoint
 app.post('/api/prompt-ai', async (req, res) => {
   try {
-    const { systemPrompt, userPrompt, temperature } = req.body;
+    const { systemPrompt, userPrompt, temperature, outputLanguage } = req.body;
 
     if (!userPrompt) {
       return res.status(400).json({
@@ -98,6 +99,7 @@ app.post('/api/prompt-ai', async (req, res) => {
       systemPrompt,
       userPrompt,
       temperature: temperature || 0.8,
+      outputLanguage: outputLanguage || 'en'
     });
 
     if (response.success) {
@@ -340,33 +342,85 @@ app.post('/api/language-detector', async (req, res) => {
 // Workflow Management API
 // ===========================
 
-// Get all workflows
+// Get all workflows from n8n
 app.get('/api/workflows', async (req, res) => {
   try {
     const fs = require('fs').promises;
     const path = require('path');
     
-    const examplesDir = path.join(__dirname, '..', 'examples');
-    const files = await fs.readdir(examplesDir);
+    // First try to get workflows from n8n API
+    try {
+      // Try without API key first (some n8n instances allow this)
+      let n8nResponse = await fetch('http://localhost:5678/api/v1/workflows');
+      
+      // If that fails, try with API key from environment
+      if (!n8nResponse.ok) {
+        const apiKey = process.env.N8N_API_KEY;
+        
+        if (apiKey) {
+          console.log('Using n8n API key from environment');
+          n8nResponse = await fetch('http://localhost:5678/api/v1/workflows', {
+            headers: {
+              'X-N8N-API-KEY': apiKey
+            }
+          });
+        }
+      }
+      
+      if (n8nResponse.ok) {
+        const n8nData = await n8nResponse.json();
+        const workflows = (n8nData.data || n8nData)
+          .map(w => {
+            const webhookUrl = extractWebhookUrl(w);
+            const hasTrigger = w.nodes?.some(node => 
+              node.type === 'n8n-nodes-base.webhook' ||
+              node.type === '@n8n/n8n-nodes-langchain.chatTrigger' ||
+              node.type === 'n8n-nodes-base.scheduleTrigger'
+            );
+            
+            return {
+              id: w.id,
+              name: w.name,
+              active: w.active,
+              nodes: w.nodes?.length || 0,
+              webhookUrl: webhookUrl,
+              hasTrigger: hasTrigger,
+              lastRun: w.updatedAt,
+              type: 'n8n'
+            };
+          })
+          .filter(w => w.hasTrigger); // Only show workflows with triggers
+        
+        return res.json({
+          success: true,
+          workflows,
+          source: 'n8n'
+        });
+      }
+    } catch (n8nError) {
+      console.log('n8n API not accessible:', n8nError.message);
+    }
     
-    const workflows = await Promise.all(
-      files
-        .filter(f => f.endsWith('.json'))
-        .map(async (file) => {
-          const content = await fs.readFile(path.join(examplesDir, file), 'utf-8');
-          const workflow = JSON.parse(content);
-          return {
-            id: file.replace('.json', ''),
-            name: workflow.name || file,
-            file: file,
-            nodes: workflow.nodes?.length || 0,
-          };
-        })
-    );
-
+    // If n8n API fails, try to get workflows from n8n database directly
+    try {
+      const workflows = await getWorkflowsFromN8nDatabase();
+      if (workflows.length > 0) {
+        return res.json({
+          success: true,
+          workflows,
+          source: 'n8n-database'
+        });
+      }
+    } catch (dbError) {
+      console.log('n8n database access failed:', dbError.message);
+    }
+    
+    // Last resort: return empty array instead of examples
     res.json({
       success: true,
-      workflows,
+      workflows: [],
+      source: 'none',
+      message: 'No workflows found. Please check n8n API configuration.'
     });
   } catch (error) {
     res.status(500).json({
@@ -375,6 +429,221 @@ app.get('/api/workflows', async (req, res) => {
     });
   }
 });
+
+// Helper function to get workflows from n8n database
+async function getWorkflowsFromN8nDatabase() {
+  // This is a fallback method - in practice, you'd need to access n8n's database
+  // For now, we'll return empty array
+  return [];
+}
+
+// Helper function to extract webhook URL from n8n workflow
+function extractWebhookUrl(workflow) {
+  if (!workflow.nodes) return null;
+  
+  // Check for standard webhook nodes
+  const webhookNode = workflow.nodes.find(
+    node => node.type === 'n8n-nodes-base.webhook'
+  );
+  
+  if (webhookNode && webhookNode.parameters?.path) {
+    return `http://localhost:5678/webhook/${webhookNode.parameters.path}`;
+  }
+  
+  // Check for chat trigger nodes (they have webhookId)
+  const chatTriggerNode = workflow.nodes.find(
+    node => node.type === '@n8n/n8n-nodes-langchain.chatTrigger'
+  );
+  
+  if (chatTriggerNode && chatTriggerNode.webhookId) {
+    return `http://localhost:5678/webhook-test/${chatTriggerNode.webhookId}`;
+  }
+  
+  return null;
+}
+
+// Helper function to execute workflow via n8n API
+async function executeWorkflowViaN8nAPI(workflowId, input) {
+  const apiKey = process.env.N8N_API_KEY;
+  if (!apiKey) {
+    throw new Error('N8N_API_KEY not configured');
+  }
+
+  // Method 1: Try to execute via webhook-test endpoint (for chat triggers)
+  try {
+    console.log('Trying webhook-test execution for workflow:', workflowId);
+    
+    // First, get the workflow to find the webhook URL
+    const workflowResponse = await fetch(`http://localhost:5678/api/v1/workflows/${workflowId}`, {
+      headers: {
+        'X-N8N-API-KEY': apiKey
+      }
+    });
+
+    if (workflowResponse.ok) {
+      const workflow = await workflowResponse.json();
+      
+      // Find chat trigger node
+      const chatTriggerNode = workflow.nodes?.find(
+        node => node.type === '@n8n/n8n-nodes-langchain.chatTrigger'
+      );
+      
+      if (chatTriggerNode && chatTriggerNode.webhookId) {
+        const webhookUrl = `http://localhost:5678/webhook-test/${chatTriggerNode.webhookId}`;
+        
+        const webhookResponse = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            chatInput: input,
+            input: input,
+            text: input
+          })
+        });
+
+        if (webhookResponse.ok) {
+          const result = await webhookResponse.json();
+          return {
+            success: true,
+            result: result,
+            method: 'webhook-test',
+            executionId: result.executionId || 'unknown'
+          };
+        } else {
+          const errorText = await webhookResponse.text();
+          if (errorText.includes('not registered') && errorText.includes('test mode')) {
+            throw new Error('Webhook is in test mode. Please activate the workflow in n8n UI first.');
+          }
+          throw new Error(`Webhook execution failed: ${webhookResponse.status}`);
+        }
+      }
+    }
+  } catch (webhookError) {
+    console.log('Webhook-test execution failed:', webhookError.message);
+  }
+
+  // Method 2: Try to execute via regular webhook endpoint
+  try {
+    console.log('Trying regular webhook execution for workflow:', workflowId);
+    
+    const workflowResponse = await fetch(`http://localhost:5678/api/v1/workflows/${workflowId}`, {
+      headers: {
+        'X-N8N-API-KEY': apiKey
+      }
+    });
+
+    if (workflowResponse.ok) {
+      const workflow = await workflowResponse.json();
+      
+      // Find webhook node
+      const webhookNode = workflow.nodes?.find(
+        node => node.type === 'n8n-nodes-base.webhook'
+      );
+      
+      if (webhookNode && webhookNode.parameters?.path) {
+        const webhookUrl = `http://localhost:5678/webhook/${webhookNode.parameters.path}`;
+        
+        const webhookResponse = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            chatInput: input,
+            input: input,
+            text: input
+          })
+        });
+
+        if (webhookResponse.ok) {
+          const result = await webhookResponse.json();
+          return {
+            success: true,
+            result: result,
+            method: 'webhook',
+            executionId: result.executionId || 'unknown'
+          };
+        }
+      }
+    }
+  } catch (webhookError) {
+    console.log('Regular webhook execution failed:', webhookError.message);
+  }
+
+  // Method 3: Try to trigger workflow execution via executions endpoint
+  try {
+    console.log('Trying execution trigger for workflow:', workflowId);
+    
+    // This is a workaround - we'll create a manual execution
+    // Note: This might not work for all workflow types
+    const executionResponse = await fetch(`http://localhost:5678/api/v1/workflows/${workflowId}/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-N8N-API-KEY': apiKey
+      },
+      body: JSON.stringify({
+        data: {
+          chatInput: input,
+          input: input,
+          text: input
+        }
+      })
+    });
+
+    if (executionResponse.ok) {
+      const result = await executionResponse.json();
+      return {
+        success: true,
+        result: result,
+        method: 'api-execute',
+        executionId: result.executionId || 'unknown'
+      };
+    }
+  } catch (apiError) {
+    console.log('API execution failed:', apiError.message);
+  }
+
+  throw new Error('All n8n execution methods failed');
+}
+
+// Helper function to activate workflow and execute it
+async function activateAndExecuteWorkflow(workflowId, input) {
+  const apiKey = process.env.N8N_API_KEY;
+  if (!apiKey) {
+    throw new Error('N8N_API_KEY not configured');
+  }
+
+  try {
+    // First, try to activate the workflow
+    console.log('Attempting to activate workflow:', workflowId);
+    const activateResponse = await fetch(`http://localhost:5678/api/v1/workflows/${workflowId}/activate`, {
+      method: 'POST',
+      headers: {
+        'X-N8N-API-KEY': apiKey
+      }
+    });
+
+    if (activateResponse.ok) {
+      console.log('Workflow activated successfully');
+      
+      // Wait a moment for activation to take effect
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Now try to execute the workflow
+      return await executeWorkflowViaN8nAPI(workflowId, input);
+    } else {
+      console.log('Failed to activate workflow:', activateResponse.status);
+    }
+  } catch (activateError) {
+    console.log('Activation failed:', activateError.message);
+  }
+
+  // If activation fails, try direct execution
+  return await executeWorkflowViaN8nAPI(workflowId, input);
+}
 
 // Get workflow by ID
 app.get('/api/workflows/:id', async (req, res) => {
@@ -394,6 +663,144 @@ app.get('/api/workflows/:id', async (req, res) => {
     res.status(404).json({
       success: false,
       error: 'Workflow not found',
+    });
+  }
+});
+
+// Execute workflow via webhook
+app.post('/api/execute-workflow', async (req, res) => {
+  try {
+    const { workflowId, input, options = {} } = req.body;
+    
+    if (!workflowId) {
+      return res.status(400).json({
+        success: false,
+        error: 'workflowId is required'
+      });
+    }
+
+    // METHOD 1: Try n8n API execution (primary method)
+    try {
+      console.log('Executing workflow via n8n API:', workflowId);
+      const result = await executeWorkflowViaN8nAPI(workflowId, input);
+      
+      return res.json({
+        success: true,
+        result: result.result,
+        workflowId,
+        timestamp: new Date().toISOString(),
+        method: result.method,
+        executionId: result.executionId
+      });
+    } catch (apiError) {
+      console.log('n8n API execution failed:', apiError.message);
+      
+      // If it's a test mode error, try to activate and execute
+      if (apiError.message.includes('test mode')) {
+        try {
+          console.log('Attempting to activate and execute workflow:', workflowId);
+          const result = await activateAndExecuteWorkflow(workflowId, input);
+          
+          return res.json({
+            success: true,
+            result: result.result,
+            workflowId,
+            timestamp: new Date().toISOString(),
+            method: result.method + '-activated',
+            executionId: result.executionId,
+            note: 'Workflow was activated automatically'
+          });
+        } catch (activateError) {
+          return res.json({
+            success: false,
+            error: apiError.message,
+            workflowId,
+            method: 'n8n-api-test-mode',
+            hint: 'Go to n8n UI, open the workflow, and click "Execute Workflow" to activate the webhook.'
+          });
+        }
+      }
+    }
+
+    // METHOD 2: Try webhook execution (fallback)
+    if (options.webhookUrl) {
+      try {
+        console.log('Executing workflow via webhook:', options.webhookUrl);
+        const webhookResponse = await fetch(options.webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            chatInput: input,
+            input: input,
+            text: input
+          })
+        });
+
+        if (webhookResponse.ok) {
+          const webhookResult = await webhookResponse.json();
+          return res.json({
+            success: true,
+            result: webhookResult,
+            workflowId,
+            timestamp: new Date().toISOString(),
+            method: 'webhook'
+          });
+        } else {
+          const errorText = await webhookResponse.text();
+          console.log('Webhook execution failed:', webhookResponse.status, errorText);
+          
+          // Check if it's a test mode error
+          if (errorText.includes('not registered') && errorText.includes('test mode')) {
+            return res.json({
+              success: false,
+              error: 'Webhook is in test mode. Please activate the workflow in n8n first.',
+              workflowId,
+              method: 'webhook-test-mode',
+              hint: 'Go to n8n UI, open the workflow, and activate it to enable webhook execution.'
+            });
+          }
+        }
+      } catch (webhookError) {
+        console.log('Webhook execution failed:', webhookError.message);
+      }
+    }
+
+    // METHOD 3: Fallback to Chrome AI (last resort)
+    if (options.useChromeAI !== false) {
+      try {
+        const result = await callWebApp('promptAI', {
+          systemPrompt: options.systemPrompt || 'You are a helpful AI assistant.',
+          userPrompt: input,
+          temperature: options.temperature || 0.8,
+          outputLanguage: options.outputLanguage || 'en'
+        });
+
+        if (result.success) {
+          return res.json({
+            success: true,
+            result: result.value,
+            workflowId,
+            timestamp: new Date().toISOString(),
+            method: 'chrome-ai-fallback',
+            note: 'Workflow execution failed, used Chrome AI instead'
+          });
+        }
+      } catch (chromeError) {
+        console.log('Chrome AI fallback failed:', chromeError.message);
+      }
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'All execution methods failed'
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });

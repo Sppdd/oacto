@@ -1,320 +1,287 @@
-// Chrome AI Workflows Extension - Options/Settings Page
+// Options Page Logic
+// Handles settings and configuration
 
-let storageManager;
-let n8nClient;
+let platformAPI;
 let chromeAIClient;
-let workflows = [];
+let settings = {};
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('Options page initialized');
+  console.log('Chrome AI Workflows options page loaded');
   
   // Initialize clients
-  storageManager = new StorageManager();
+  platformAPI = new PlatformAPI();
   chromeAIClient = new ChromeAIClient();
   
   // Load settings
   await loadSettings();
   
-  // Load workflows
-  await loadWorkflows();
-  
-  // Check AI status
-  await checkAIStatus();
-  
   // Setup event listeners
   setupEventListeners();
+  
+  // Check initial status
+  await checkStatus();
 });
 
 // Load settings from storage
 async function loadSettings() {
-  const settings = await storageManager.getSettings();
-  
-  document.getElementById('n8n-url').value = settings.n8nUrl;
-  document.getElementById('n8n-api-key').value = settings.n8nApiKey || '';
-  
-  // Initialize n8n client
-  n8nClient = new N8nClient(settings.n8nUrl, settings.n8nApiKey);
-}
-
-// Load workflows from storage
-async function loadWorkflows() {
-  workflows = await storageManager.getWorkflows();
-  
-  // If empty, load defaults
-  if (!workflows || workflows.length === 0) {
-    workflows = [...DEFAULT_WORKFLOWS];
-    await storageManager.saveWorkflows(workflows);
+  try {
+    const result = await chrome.storage.local.get(['settings']);
+    settings = result.settings || getDefaultSettings();
+    
+    // Apply settings to UI
+    applySettingsToUI();
+  } catch (error) {
+    console.log('Could not load settings:', error);
+    settings = getDefaultSettings();
   }
-  
-  renderWorkflowsTable();
 }
 
-// Render workflows table
-function renderWorkflowsTable() {
-  const tbody = document.getElementById('workflows-tbody');
-  tbody.innerHTML = '';
-  
-  workflows.forEach((workflow, index) => {
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td>${workflow.icon}</td>
-      <td>${workflow.name}</td>
-      <td style="font-size: 12px; color: var(--text-secondary);">${truncate(workflow.webhookUrl, 40)}</td>
-      <td>
-        <div class="workflow-actions">
-          <button class="icon-btn" onclick="editWorkflow(${index})">✏️ Edit</button>
-          <button class="icon-btn" onclick="deleteWorkflow(${index})">🗑️ Delete</button>
-        </div>
-      </td>
-    `;
-    tbody.appendChild(row);
-  });
+// Get default settings
+function getDefaultSettings() {
+  return {
+    platformUrl: 'http://localhost:3333',
+    n8nUrl: 'http://localhost:5678',
+    defaultTemperature: 0.8,
+    defaultTopK: 3,
+    autoRefreshWorkflows: true,
+    showContextMenu: true,
+    saveExecutionHistory: true
+  };
+}
+
+// Apply settings to UI
+function applySettingsToUI() {
+  document.getElementById('platform-url').value = settings.platformUrl;
+  document.getElementById('n8n-url').value = settings.n8nUrl;
+  document.getElementById('default-temperature').value = settings.defaultTemperature;
+  document.getElementById('default-topk').value = settings.defaultTopK;
+  document.getElementById('auto-refresh-workflows').checked = settings.autoRefreshWorkflows;
+  document.getElementById('show-context-menu').checked = settings.showContextMenu;
+  document.getElementById('save-execution-history').checked = settings.saveExecutionHistory;
+}
+
+// Save settings to storage
+async function saveSettings() {
+  try {
+    await chrome.storage.local.set({ settings: settings });
+    showMessage('Settings saved successfully', 'success');
+  } catch (error) {
+    console.log('Could not save settings:', error);
+    showMessage('Failed to save settings', 'error');
+  }
 }
 
 // Setup event listeners
 function setupEventListeners() {
+  // Test connection button
   document.getElementById('test-connection').addEventListener('click', testConnection);
+  
+  // Test Chrome AI button
+  document.getElementById('test-chrome-ai').addEventListener('click', testChromeAI);
+  
+  // Clear history button
+  document.getElementById('clear-history').addEventListener('click', clearHistory);
+  
+  // Reset settings button
+  document.getElementById('reset-settings').addEventListener('click', resetSettings);
+  
+  // Save settings button
   document.getElementById('save-settings').addEventListener('click', saveSettings);
-  document.getElementById('check-ai').addEventListener('click', checkAIStatus);
-  document.getElementById('add-workflow').addEventListener('click', addWorkflow);
-  document.getElementById('import-config').addEventListener('click', importConfig);
-  document.getElementById('export-config').addEventListener('click', exportConfig);
-  document.getElementById('clear-all').addEventListener('click', clearAllData);
+  
+  // Settings change handlers
+  document.getElementById('platform-url').addEventListener('change', updateSettings);
+  document.getElementById('n8n-url').addEventListener('change', updateSettings);
+  document.getElementById('default-temperature').addEventListener('change', updateSettings);
+  document.getElementById('default-topk').addEventListener('change', updateSettings);
+  document.getElementById('auto-refresh-workflows').addEventListener('change', updateSettings);
+  document.getElementById('show-context-menu').addEventListener('change', updateSettings);
+  document.getElementById('save-execution-history').addEventListener('change', updateSettings);
+}
+
+// Update settings from UI
+function updateSettings() {
+  settings.platformUrl = document.getElementById('platform-url').value;
+  settings.n8nUrl = document.getElementById('n8n-url').value;
+  settings.defaultTemperature = parseFloat(document.getElementById('default-temperature').value);
+  settings.defaultTopK = parseInt(document.getElementById('default-topk').value);
+  settings.autoRefreshWorkflows = document.getElementById('auto-refresh-workflows').checked;
+  settings.showContextMenu = document.getElementById('show-context-menu').checked;
+  settings.saveExecutionHistory = document.getElementById('save-execution-history').checked;
+  
+  // Update API clients
+  platformAPI.setConfig(settings.platformUrl);
+}
+
+// Test connection
+async function testConnection() {
+  const button = document.getElementById('test-connection');
+  const resultsDiv = document.getElementById('connection-results');
+  
+  button.textContent = 'Testing...';
+  button.disabled = true;
+  
+  try {
+    // Test platform connection
+    const platformConnected = await platformAPI.checkConnection();
+    
+    // Test n8n connection
+    const n8nConnected = await testN8nConnection();
+    
+    let message = '';
+    let isSuccess = true;
+    
+    if (platformConnected) {
+      message += '✅ Platform server connected<br>';
+    } else {
+      message += '❌ Platform server not connected<br>';
+      isSuccess = false;
+    }
+    
+    if (n8nConnected) {
+      message += '✅ n8n server connected<br>';
+    } else {
+      message += '❌ n8n server not connected<br>';
+      isSuccess = false;
+    }
+    
+    resultsDiv.innerHTML = message;
+    resultsDiv.className = `test-results ${isSuccess ? 'success' : 'error'}`;
+    
+  } catch (error) {
+    resultsDiv.innerHTML = `❌ Connection test failed: ${error.message}`;
+    resultsDiv.className = 'test-results error';
+  } finally {
+    button.textContent = 'Test Connection';
+    button.disabled = false;
+  }
 }
 
 // Test n8n connection
-async function testConnection() {
-  const url = document.getElementById('n8n-url').value;
-  const apiKey = document.getElementById('n8n-api-key').value;
-  
-  const statusDiv = document.getElementById('connection-status');
-  statusDiv.innerHTML = '<p style="color: var(--text-secondary);">Testing connection...</p>';
-  
-  const testClient = new N8nClient(url, apiKey);
-  const result = await testClient.testConnection();
-  
-  if (result.success) {
-    statusDiv.innerHTML = '<span class="status-badge success">✓ Connected to n8n</span>';
-    showMessage('Connection successful!', 'success');
-  } else {
-    statusDiv.innerHTML = '<span class="status-badge error">✗ Connection failed</span>';
-    showMessage('Connection failed: ' + result.error, 'error');
-  }
-}
-
-// Save settings
-async function saveSettings() {
-  const settings = {
-    n8nUrl: document.getElementById('n8n-url').value,
-    n8nApiKey: document.getElementById('n8n-api-key').value,
-    platformUrl: 'http://localhost:3333',
-    autoRefreshWorkflows: true
-  };
-  
-  await storageManager.saveSettings(settings);
-  
-  // Update n8n client
-  n8nClient.setConfig(settings.n8nUrl, settings.n8nApiKey);
-  
-  showMessage('Settings saved successfully!', 'success');
-}
-
-// Check Chrome AI status
-async function checkAIStatus() {
-  const statusDiv = document.getElementById('ai-status');
-  statusDiv.innerHTML = '<p style="color: var(--text-secondary);">Checking Chrome AI...</p>';
-  
-  const result = await chromeAIClient.checkAvailability();
-  
-  if (result.available) {
-    const capabilities = await chromeAIClient.getCapabilities();
-    const availableAPIs = Object.entries(capabilities)
-      .filter(([key, value]) => value)
-      .map(([key]) => key)
-      .join(', ');
-    
-    statusDiv.innerHTML = `
-      <span class="status-badge success">✓ Chrome AI Available</span>
-      <p style="color: var(--text-secondary); margin-top: 12px; font-size: 13px;">
-        Available APIs: ${availableAPIs}
-      </p>
-    `;
-  } else {
-    statusDiv.innerHTML = `
-      <span class="status-badge error">✗ Chrome AI Not Available</span>
-      <p style="color: var(--error); margin-top: 12px; font-size: 13px;">
-        ${result.reason}
-      </p>
-      ${result.downloading ? '<p style="color: var(--warning); margin-top: 8px; font-size: 13px;">Model is downloading. Please wait and check again.</p>' : ''}
-    `;
-  }
-}
-
-// Add new workflow
-function addWorkflow() {
-  const name = prompt('Workflow Name:');
-  if (!name) return;
-  
-  const webhookUrl = prompt('Webhook URL:', 'http://localhost:5678/webhook/');
-  if (!webhookUrl) return;
-  
-  const icon = prompt('Icon (emoji):', '⚙️');
-  const description = prompt('Description:', '');
-  
-  const newWorkflow = {
-    id: 'custom_' + Date.now(),
-    name: name,
-    description: description,
-    webhookUrl: webhookUrl,
-    icon: icon || '⚙️',
-    method: 'POST',
-    acceptsContext: true,
-    showInContextMenu: true,
-    category: 'custom'
-  };
-  
-  workflows.push(newWorkflow);
-  saveWorkflows();
-}
-
-// Edit workflow
-window.editWorkflow = function(index) {
-  const workflow = workflows[index];
-  
-  const name = prompt('Workflow Name:', workflow.name);
-  if (name === null) return;
-  
-  const webhookUrl = prompt('Webhook URL:', workflow.webhookUrl);
-  if (webhookUrl === null) return;
-  
-  const icon = prompt('Icon (emoji):', workflow.icon);
-  const description = prompt('Description:', workflow.description);
-  
-  workflows[index] = {
-    ...workflow,
-    name: name || workflow.name,
-    webhookUrl: webhookUrl || workflow.webhookUrl,
-    icon: icon || workflow.icon,
-    description: description || workflow.description
-  };
-  
-  saveWorkflows();
-};
-
-// Delete workflow
-window.deleteWorkflow = function(index) {
-  const workflow = workflows[index];
-  
-  if (confirm(`Delete workflow "${workflow.name}"?`)) {
-    workflows.splice(index, 1);
-    saveWorkflows();
-  }
-};
-
-// Save workflows to storage
-async function saveWorkflows() {
-  await storageManager.saveWorkflows(workflows);
-  renderWorkflowsTable();
-  
-  // Notify background to update context menus
-  chrome.runtime.sendMessage({ action: 'refreshWorkflows' });
-  
-  showMessage('Workflows updated!', 'success');
-}
-
-// Import configuration
-function importConfig() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.json';
-  
-  input.onchange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    try {
-      const text = await file.text();
-      const config = JSON.parse(text);
-      
-      // Import configuration
-      await storageManager.importConfig(config);
-      
-      // Reload data
-      await loadSettings();
-      await loadWorkflows();
-      
-      showMessage('Configuration imported successfully!', 'success');
-    } catch (error) {
-      showMessage('Import failed: ' + error.message, 'error');
-    }
-  };
-  
-  input.click();
-}
-
-// Export configuration
-async function exportConfig() {
+async function testN8nConnection() {
   try {
-    const config = await storageManager.exportConfig();
-    
-    // Create blob and download
-    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `chrome-ai-workflows-config-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    
-    URL.revokeObjectURL(url);
-    
-    showMessage('Configuration exported!', 'success');
+    const response = await fetch(`${settings.n8nUrl}/healthz`);
+    return response.ok;
   } catch (error) {
-    showMessage('Export failed: ' + error.message, 'error');
+    return false;
   }
 }
 
-// Clear all data
-async function clearAllData() {
-  if (!confirm('This will delete ALL workflows, chat history, and settings. Are you sure?')) {
-    return;
+// Test Chrome AI
+async function testChromeAI() {
+  const button = document.getElementById('test-chrome-ai');
+  const resultsDiv = document.getElementById('chrome-ai-results');
+  
+  button.textContent = 'Testing...';
+  button.disabled = true;
+  
+  try {
+    const result = await chromeAIClient.quickPrompt('Write a short haiku about automation', {
+      temperature: settings.defaultTemperature,
+      topK: settings.defaultTopK
+    });
+    
+    if (result.success) {
+      resultsDiv.innerHTML = `✅ Chrome AI working<br><br>Test result:<br><em>${result.result}</em>`;
+      resultsDiv.className = 'test-results success';
+    } else {
+      resultsDiv.innerHTML = `❌ Chrome AI test failed: ${result.error}`;
+      resultsDiv.className = 'test-results error';
+    }
+  } catch (error) {
+    resultsDiv.innerHTML = `❌ Chrome AI test failed: ${error.message}`;
+    resultsDiv.className = 'test-results error';
+  } finally {
+    button.textContent = 'Test Chrome AI';
+    button.disabled = false;
   }
-  
-  if (!confirm('This action cannot be undone. Continue?')) {
-    return;
+}
+
+// Clear execution history
+async function clearHistory() {
+  if (confirm('Are you sure you want to clear all execution history?')) {
+    try {
+      await chrome.storage.local.remove(['executionHistory']);
+      showMessage('Execution history cleared', 'success');
+    } catch (error) {
+      showMessage('Failed to clear history', 'error');
+    }
   }
+}
+
+// Reset settings to defaults
+function resetSettings() {
+  if (confirm('Are you sure you want to reset all settings to defaults?')) {
+    settings = getDefaultSettings();
+    applySettingsToUI();
+    showMessage('Settings reset to defaults', 'success');
+  }
+}
+
+// Check status
+async function checkStatus() {
+  const statusDiv = document.getElementById('status-info');
   
-  await storageManager.clearAll();
-  
-  // Reload defaults
-  workflows = [...DEFAULT_WORKFLOWS];
-  await storageManager.saveWorkflows(workflows);
-  
-  await loadSettings();
-  await loadWorkflows();
-  
-  showMessage('All data cleared. Default settings restored.', 'success');
+  try {
+    // Check platform connection
+    const platformConnected = await platformAPI.checkConnection();
+    
+    // Check Chrome AI availability
+    const chromeAIAvailable = await chromeAIClient.checkAvailability();
+    
+    let statusHTML = '';
+    
+    if (platformConnected) {
+      statusHTML += '<p><span class="status-indicator connected"></span>Platform server connected</p>';
+    } else {
+      statusHTML += '<p><span class="status-indicator error"></span>Platform server not connected</p>';
+    }
+    
+    if (chromeAIAvailable) {
+      statusHTML += '<p><span class="status-indicator connected"></span>Chrome AI available</p>';
+    } else {
+      statusHTML += '<p><span class="status-indicator error"></span>Chrome AI not available</p>';
+    }
+    
+    statusDiv.innerHTML = statusHTML;
+  } catch (error) {
+    statusDiv.innerHTML = '<p><span class="status-indicator error"></span>Status check failed</p>';
+  }
 }
 
 // Show message
-function showMessage(text, type) {
-  const messageDiv = document.getElementById('message');
-  messageDiv.textContent = text;
-  messageDiv.className = `message ${type}`;
-  messageDiv.style.display = 'block';
+function showMessage(message, type) {
+  // Create temporary message
+  const messageDiv = document.createElement('div');
+  messageDiv.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${type === 'success' ? 'var(--success)' : 'var(--error)'};
+    color: white;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    z-index: 1000;
+    animation: slideIn 0.3s ease-out;
+  `;
+  messageDiv.textContent = message;
+  
+  document.body.appendChild(messageDiv);
   
   setTimeout(() => {
-    messageDiv.style.display = 'none';
-  }, 5000);
+    messageDiv.remove();
+  }, 3000);
 }
 
-// Utility function
-function truncate(text, maxLength) {
-  if (!text) return '';
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + '...';
-}
+// Add CSS animation for slideIn
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+`;
+document.head.appendChild(style);
 
-console.log('Options page script loaded');
-
+console.log('Chrome AI Workflows options script loaded');

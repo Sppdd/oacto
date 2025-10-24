@@ -45,3 +45,6 @@ coverage/
 # WebSocket test files
 ws:/
 
+CLAUDE.md
+chat-session.md
+.env 

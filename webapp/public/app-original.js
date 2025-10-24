@@ -161,8 +161,7 @@ async function checkAIAvailability() {
     try {
       const testSession = await LanguageModel.create({
         temperature: 0.8,
-        topK: 3,
-        outputLanguage: 'en'
+        topK: 3
       });
       
       // If we get here, AI is ready
@@ -296,7 +295,7 @@ async function executeAIRequest(message) {
 
 // Chrome Prompt API implementation
 async function executePromptAI(params) {
-  const { systemPrompt, userPrompt, temperature, outputLanguage } = params;
+  const { systemPrompt, userPrompt, temperature } = params;
 
   if (!isAiAvailable) {
     throw new Error('Chrome AI not available. Enable in chrome://flags');
@@ -304,8 +303,7 @@ async function executePromptAI(params) {
 
   const sessionConfig = {
     temperature: temperature || 0.8,
-    topK: 3,
-    outputLanguage: outputLanguage || 'en'
+    topK: 3
   };
 
   if (systemPrompt) {

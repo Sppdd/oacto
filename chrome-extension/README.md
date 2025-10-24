@@ -1,254 +1,248 @@
-# Chrome AI Workflows Extension
+# Chrome AI Workflows Extension - Installation & Testing Guide
 
-Quick access to n8n workflows powered by Chrome's built-in AI (Gemini Nano) directly from your browser's side panel.
+## 🚀 Quick Installation
 
-## Features
+### Step 1: Load Extension in Chrome
 
-- **Side Panel Interface** - Persistent chat-like interface for workflow execution
-- **Context Menus** - Right-click selected text to run workflows instantly
-- **Workflow Management** - Add, edit, and configure custom workflows
-- **n8n Integration** - Trigger workflows via webhooks with automatic discovery
-- **Chat History** - Keep track of recent workflow executions
-- **Chrome AI Status** - Real-time status of on-device AI availability
-- **Import/Export** - Backup and share workflow configurations
+1. Open Chrome and go to `chrome://extensions/`
+2. Enable **Developer mode** (toggle in top-right)
+3. Click **Load unpacked**
+4. Select the `chrome-extension` folder from your project
+5. The extension should appear in your extensions list
 
-## Installation
+### Step 2: Pin Extension
 
-### Prerequisites
+1. Click the **puzzle piece icon** in Chrome toolbar
+2. Find **Chrome AI Workflows** and click the **pin icon**
+3. The extension icon should now appear in your toolbar
 
-1. **Chrome Canary** (or Chrome 127+) with Chrome AI enabled:
-   - Join Chrome AI Early Preview Program: https://goo.gle/chrome-ai-dev-preview-join
-   - Enable flags in `chrome://flags`:
-     - "Prompt API for Gemini Nano" → Enable
-     - "Enables optimization guide on device" → Enable
-   - Download AI model from `chrome://components/`
-   - Restart Chrome
+### Step 3: Verify Installation
 
-2. **n8n** running on localhost:5678
-   ```bash
-   n8n start
-   ```
-
-3. **Chrome AI Platform** (webapp) running on localhost:3333
-   ```bash
-   cd webapp
-   npm start
-   ```
-
-### Load Extension
-
-1. Open Chrome and navigate to `chrome://extensions/`
-2. Enable "Developer mode" (top-right toggle)
-3. Click "Load unpacked"
-4. Select the `chrome-extension/` directory
-5. The extension icon should appear in your toolbar
-
-## Usage
-
-### Quick Start
-
-1. **Open Side Panel**
-   - Click the extension icon in toolbar, or
-   - Right-click selected text → "Chrome AI Workflows"
-
-2. **Select a Workflow**
-   - Choose from the dropdown (default workflows included)
-
-3. **Enter Input**
-   - Type your text or use pre-filled selected text
-
-4. **Run Workflow**
-   - Click "Run Workflow" button
-   - Results appear in the side panel
-
-### Context Menu
-
-Right-click any selected text and choose:
-- **Chrome AI Workflows** → Select specific workflow
-- Workflows with icons appear in submenu
-
-### Settings
-
-Click extension icon → Right-click → "Options" to:
-- Configure n8n connection (URL, API key)
-- Add/edit/delete custom workflows
-- Import/export configuration
-- Test Chrome AI status
-- Clear all data
-
-## Configuration
-
-### n8n Workflows
-
-Your n8n workflows must have a **Webhook trigger node** configured:
-
-1. In n8n, add a "Webhook" node to your workflow
-2. Set the webhook path (e.g., `/summarize`)
-3. Activate the workflow
-4. The webhook URL will be: `http://localhost:5678/webhook/summarize`
-
-### Default Workflows
-
-The extension comes with 6 pre-configured workflows:
-
-- **📝 Summarize Text** - Create concise summaries
-- **🌍 Translate Text** - Translate to other languages
-- **✏️ Rewrite Text** - Rephrase with different tone
-- **🔍 Proofread Text** - Fix grammar and spelling
-- **💬 AI Chat Assistant** - General conversation
-- **🎨 Generate Haiku** - Creative haiku generation
-
-### Custom Workflows
-
-Add your own workflows in Settings:
-1. Click "Add Workflow"
-2. Enter:
-   - Name
-   - Webhook URL
-   - Icon (emoji)
-   - Description
-3. Save
-
-## Webhook Payload Format
-
-The extension sends this JSON to your n8n webhooks:
-
-```json
-{
-  "text": "user input or selected text",
-  "context": {
-    "url": "https://example.com",
-    "title": "Page Title",
-    "selection": "highlighted text"
-  },
-  "sessionId": "session_12345"
-}
-```
-
-Your n8n workflow can access these values using `{{$json.text}}`, `{{$json.context.url}}`, etc.
-
-## Troubleshooting
-
-### Extension shows "Platform: Disconnected"
-
-- Make sure n8n is running on port 5678
-- Check webhook URLs in settings are correct
-- Test connection in Settings page
-
-### Extension shows "AI: Not Available"
-
-1. Enable Chrome AI flags in `chrome://flags`
-2. Download model from `chrome://components/`
-3. Restart Chrome
-4. Click "Check AI Status" in Settings
-
-### Workflows don't execute
-
-1. Verify n8n workflow is active (toggle on in n8n)
-2. Check webhook trigger node is configured
-3. Test webhook URL manually with curl:
-   ```bash
-   curl -X POST http://localhost:5678/webhook/test \
-     -H "Content-Type: application/json" \
-     -d '{"text":"test"}'
-   ```
-
-### Context menu doesn't appear
-
-1. Check workflows are configured with `showInContextMenu: true`
-2. Reload the extension
-3. Right-click on selected text (not empty space)
-
-## Architecture
-
-```
-User Action (side panel or context menu)
-  ↓
-Extension sends webhook POST request
-  ↓
-n8n workflow receives data
-  ↓
-n8n uses Chrome AI nodes (via webapp server)
-  ↓
-Chrome AI processes (Gemini Nano on-device)
-  ↓
-Result returns through chain
-  ↓
-Extension displays in side panel
-```
-
-## Development
-
-### File Structure
-
-```
-chrome-extension/
-├── manifest.json              # Extension manifest (Manifest V3)
-├── background.js              # Service worker (context menus, webhooks)
-├── sidepanel.html/js/css      # Main UI
-├── options.html/js            # Settings page
-└── lib/
-    ├── workflow-config.js     # Default workflows
-    ├── n8n-client.js          # Webhook execution
-    ├── chromeai-client.js     # AI API wrapper
-    └── storage-manager.js     # Chrome storage helper
-```
-
-### Message Passing
-
-**Side Panel → Background:**
-```javascript
-chrome.runtime.sendMessage({
-  action: 'executeWebhook',
-  webhookUrl: 'http://localhost:5678/webhook/test',
-  data: { text: 'Hello' }
-});
-```
-
-**Background → Side Panel:**
-```javascript
-chrome.runtime.sendMessage({
-  action: 'setSelectedText',
-  text: 'Selected text from page'
-});
-```
-
-### Storage Format
-
-Workflows and history are stored in `chrome.storage.sync`:
-
-```javascript
-{
-  workflows: [...],        // Array of workflow configs
-  chatHistory: [...],      // Last 50 executions
-  settings: {              // Extension settings
-    n8nUrl: 'http://localhost:5678',
-    n8nApiKey: '',
-    platformUrl: 'http://localhost:3333'
-  }
-}
-```
-
-## Privacy
-
-- **100% Local**: All AI processing happens on your device
-- **No External Calls**: Extension only communicates with localhost
-- **No Data Collection**: Nothing is sent to external servers
-- **Open Source**: Audit the code yourself
-
-## Links
-
-- Chrome AI Documentation: https://developer.chrome.com/docs/ai/built-in-apis
-- n8n Documentation: https://docs.n8n.io
-- Chrome Extension Samples: https://github.com/GoogleChrome/chrome-extensions-samples
-
-## License
-
-MIT License - See main project LICENSE file
+- Extension icon should show in toolbar
+- Clicking it should open the side panel
+- Right-click on selected text should show context menu
 
 ---
 
-**Built for the Chrome AI Automation Platform** 🚀
+## 🧪 Testing the Extension
 
-For issues and feature requests, see the main project repository.
+### Test 1: Basic Functionality
 
+1. **Open Side Panel**
+   - Click extension icon
+   - Should see dark-themed interface
+   - Status indicators should show connection status
+
+2. **Test AI Connection**
+   - Click **✨ Test AI** button
+   - Should generate a haiku about automation
+   - If fails, check Chrome AI setup
+
+3. **Test Platform Connection**
+   - Click **🚀 Platform** button
+   - Should open `http://localhost:3333`
+   - If fails, start platform server
+
+### Test 2: Workflow Execution
+
+1. **Load Workflows**
+   - Click **🔄 Refresh** button
+   - Should load workflows from n8n or examples
+   - Workflow selector should populate
+
+2. **Execute Workflow**
+   - Select a workflow from dropdown
+   - Type some text in input area
+   - Click **▶️ Run Workflow**
+   - Should see result in results section
+
+3. **Test Context Menu**
+   - Select text on any webpage
+   - Right-click → **Send to Chrome AI Workflows**
+   - Side panel should open with text pre-filled
+
+### Test 3: Advanced Features
+
+1. **Execution History**
+   - Execute several workflows
+   - Check history section shows recent executions
+   - Click on history item to reload
+
+2. **Copy Results**
+   - Execute a workflow
+   - Click **📋 Copy** button
+   - Paste somewhere to verify
+
+3. **Settings Page**
+   - Right-click extension icon → **Options**
+   - Test connection buttons
+   - Modify settings and save
+
+---
+
+## 🔧 Troubleshooting
+
+### Extension Not Loading
+
+**Problem**: Extension doesn't appear in `chrome://extensions/`
+
+**Solutions**:
+1. Check Developer mode is enabled
+2. Verify you selected the correct `chrome-extension` folder
+3. Look for error messages in the extensions page
+4. Try refreshing the extensions page
+
+### Side Panel Not Opening
+
+**Problem**: Clicking extension icon doesn't open side panel
+
+**Solutions**:
+1. Check Chrome version (needs Chrome 114+)
+2. Try right-clicking extension icon → **Inspect popup**
+3. Check browser console for errors
+4. Reload the extension
+
+### No Workflows Showing
+
+**Problem**: Workflow selector is empty
+
+**Solutions**:
+1. Check if n8n is running on `http://localhost:5678`
+2. Check if platform server is running on `http://localhost:3333`
+3. Click **🔄 Refresh** button
+4. Check browser console for API errors
+
+### Context Menu Not Appearing
+
+**Problem**: Right-click doesn't show Chrome AI options
+
+**Solutions**:
+1. Reload the extension
+2. Check extension permissions
+3. Try on different websites
+4. Check if context menu is enabled in settings
+
+### Chrome AI Not Working
+
+**Problem**: AI test fails or workflows don't execute
+
+**Solutions**:
+1. Verify Chrome AI is enabled (see platform setup)
+2. Check `chrome://flags` for AI flags
+3. Download AI model in `chrome://components/`
+4. Restart Chrome completely
+
+### Platform Connection Failed
+
+**Problem**: Platform status shows disconnected
+
+**Solutions**:
+1. Start platform server: `cd webapp && npm start`
+2. Open `http://localhost:3333` in Chrome
+3. Keep the platform tab open
+4. Check firewall settings
+
+---
+
+## 📊 Expected Behavior
+
+### Status Indicators
+
+| Indicator | Meaning | Action |
+|-----------|---------|--------|
+| 🟢 Green | Connected/Ready | Everything working |
+| 🟡 Yellow | Warning | Partial functionality |
+| 🔴 Red | Error/Disconnected | Check connections |
+
+### Badge States
+
+| Badge | Meaning |
+|-------|---------|
+| ✓ Green | Platform connected |
+| ! Red | Platform disconnected |
+| ✗ Red | Extension error |
+
+### Workflow Sources
+
+The extension tries to load workflows in this order:
+1. **n8n API** - Real workflows from your n8n instance
+2. **Examples** - Fallback to example workflows
+3. **Default** - Built-in workflow configurations
+
+---
+
+## 🎯 Success Criteria
+
+Extension is working correctly when:
+
+- ✅ **Extension loads** without errors
+- ✅ **Side panel opens** when clicking icon
+- ✅ **Status indicators** show green when platform is running
+- ✅ **Workflows load** from n8n or examples
+- ✅ **AI test** generates a haiku
+- ✅ **Context menu** appears on text selection
+- ✅ **Workflow execution** produces results
+- ✅ **History** saves and displays executions
+- ✅ **Settings page** opens and saves configuration
+
+---
+
+## 🔄 Development Workflow
+
+### Making Changes
+
+1. **Edit files** in `chrome-extension/` folder
+2. **Reload extension** in `chrome://extensions/`
+3. **Test changes** in side panel
+4. **Check console** for errors
+
+### Debugging
+
+1. **Extension Console**
+   - Right-click extension icon → **Inspect popup**
+   - Check console for errors
+
+2. **Background Script**
+   - Go to `chrome://extensions/`
+   - Click **service worker** link
+   - Check console for errors
+
+3. **Side Panel Console**
+   - Open side panel
+   - Right-click → **Inspect**
+   - Check console for errors
+
+### Testing Checklist
+
+- [ ] Extension loads without errors
+- [ ] Side panel opens and displays correctly
+- [ ] Status indicators work
+- [ ] Workflows load from n8n
+- [ ] AI execution works
+- [ ] Context menu functions
+- [ ] History saves and loads
+- [ ] Settings page works
+- [ ] Badge updates correctly
+
+---
+
+## 📚 Additional Resources
+
+- **Platform Guide**: `PLATFORM-GUIDE.md`
+- **Extension Development**: `EXTENSION-DEVELOPMENT-PROMPT.md`
+- **Chrome Extension Docs**: https://developer.chrome.com/docs/extensions/
+- **Chrome AI Docs**: https://developer.chrome.com/docs/ai/
+
+---
+
+## 🆘 Getting Help
+
+If you encounter issues:
+
+1. **Check this guide** first
+2. **Review console errors** in DevTools
+3. **Test individual components** (platform, n8n, Chrome AI)
+4. **Restart everything** (Chrome, servers, extension)
+5. **Check GitHub issues** for similar problems
+
+**Happy automating!** 🚀

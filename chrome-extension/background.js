@@ -1,128 +1,45 @@
-// Background Service Worker for Chrome AI Workflows Extension
-// Handles context menus, webhook execution, and message passing
+// Background Service Worker
+// Handles context menus, badge updates, and communication
 
-// Default workflow configurations (inline to avoid importScripts)
-const DEFAULT_WORKFLOWS = [
-  {
-    id: 'summarize',
-    name: 'Summarize Text',
-    description: 'Create a concise summary of selected text',
-    webhookUrl: 'http://localhost:5678/webhook/summarize',
-    icon: '📝',
-    method: 'POST',
-    acceptsContext: true,
-    showInContextMenu: true,
-    category: 'text-processing'
-  },
-  {
-    id: 'translate',
-    name: 'Translate Text',
-    description: 'Translate text to another language',
-    webhookUrl: 'http://localhost:5678/webhook/translate',
-    icon: '🌍',
-    method: 'POST',
-    acceptsContext: true,
-    showInContextMenu: true,
-    category: 'text-processing'
-  },
-  {
-    id: 'rewrite',
-    name: 'Rewrite Text',
-    description: 'Rephrase text with different tone',
-    webhookUrl: 'http://localhost:5678/webhook/rewrite',
-    icon: '✏️',
-    method: 'POST',
-    acceptsContext: true,
-    showInContextMenu: true,
-    category: 'text-processing'
-  },
-  {
-    id: 'proofread',
-    name: 'Proofread Text',
-    description: 'Fix grammar and spelling errors',
-    webhookUrl: 'http://localhost:5678/webhook/proofread',
-    icon: '🔍',
-    method: 'POST',
-    acceptsContext: true,
-    showInContextMenu: true,
-    category: 'text-processing'
-  },
-  {
-    id: 'chat',
-    name: 'AI Chat Assistant',
-    description: 'General AI conversation',
-    webhookUrl: 'http://localhost:5678/webhook/chat',
-    icon: '💬',
-    method: 'POST',
-    acceptsContext: false,
-    showInContextMenu: false,
-    category: 'chat'
-  },
-  {
-    id: 'haiku',
-    name: 'Generate Haiku',
-    description: 'Create a beautiful haiku about any topic',
-    webhookUrl: 'http://localhost:5678/webhook/haiku',
-    icon: '🎨',
-    method: 'POST',
-    acceptsContext: false,
-    showInContextMenu: false,
-    category: 'creative'
-  }
-];
-
-let workflows = [];
-
-// Initialize on install
-chrome.runtime.onInstalled.addListener(async () => {
+// Initialize extension
+chrome.runtime.onInstalled.addListener(() => {
   console.log('Chrome AI Workflows extension installed');
   
-  // Load workflows from storage or use defaults
-  await loadWorkflows();
-  
-  // Create context menus
+  // Create context menu items
   createContextMenus();
+  
+  // Set initial badge
+  updateBadge();
+  
+  // Start periodic badge updates
+  setInterval(updateBadge, 30000); // Every 30 seconds
 });
 
-// Load workflows from storage
-async function loadWorkflows() {
-  try {
-    const result = await chrome.storage.sync.get(['workflows']);
-    workflows = result.workflows && result.workflows.length > 0 
-      ? result.workflows 
-      : DEFAULT_WORKFLOWS;
-    
-    console.log('Loaded workflows:', workflows.length);
-  } catch (error) {
-    console.error('Error loading workflows:', error);
-    workflows = DEFAULT_WORKFLOWS;
-  }
-}
-
-// Create context menus for workflows
+// Create context menu items
 function createContextMenus() {
-  // Remove all existing menus first
-  chrome.contextMenus.removeAll(() => {
-    // Main menu
+  // Main context menu for text selection
+  chrome.contextMenus.create({
+    id: 'chrome-ai-workflows',
+    title: 'Send to Chrome AI Workflows',
+    contexts: ['selection']
+  });
+
+  // Quick action submenus
+  const quickActions = [
+    { id: 'summarize', title: '📝 Summarize', icon: '📝' },
+    { id: 'translate', title: '🌍 Translate', icon: '🌍' },
+    { id: 'rewrite', title: '✏️ Rewrite', icon: '✏️' },
+    { id: 'proofread', title: '🔍 Proofread', icon: '🔍' },
+    { id: 'email', title: '📧 Write Email', icon: '📧' }
+  ];
+
+  quickActions.forEach(action => {
     chrome.contextMenus.create({
-      id: 'chrome-ai-workflows',
-      title: 'Chrome AI Workflows',
+      id: action.id,
+      parentId: 'chrome-ai-workflows',
+      title: action.title,
       contexts: ['selection']
     });
-
-    // Add submenu for each workflow that accepts context
-    workflows
-      .filter(w => w.showInContextMenu)
-      .forEach(workflow => {
-        chrome.contextMenus.create({
-          id: `workflow-${workflow.id}`,
-          parentId: 'chrome-ai-workflows',
-          title: `${workflow.icon} ${workflow.name}`,
-          contexts: ['selection']
-        });
-      });
-
-    console.log('Context menus created');
   });
 }
 
@@ -130,162 +47,106 @@ function createContextMenus() {
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === 'chrome-ai-workflows') {
     // Open side panel with selected text
-    await chrome.sidePanel.open({ windowId: tab.windowId });
+    await chrome.sidePanel.open({ tabId: tab.id });
     
-    // Send selected text to side panel
-    setTimeout(() => {
-      chrome.runtime.sendMessage({
+    // Send message to side panel
+    try {
+      await chrome.tabs.sendMessage(tab.id, {
         action: 'setSelectedText',
-        text: info.selectionText,
-        pageUrl: info.pageUrl,
-        pageTitle: tab.title
+        text: info.selectionText
       });
-    }, 500);
-  } else if (info.menuItemId.startsWith('workflow-')) {
-    // Extract workflow ID
-    const workflowId = info.menuItemId.replace('workflow-', '');
-    const workflow = workflows.find(w => w.id === workflowId);
+    } catch (error) {
+      console.log('Could not send message to tab:', error);
+    }
+  } else {
+    // Execute specific workflow
+    await chrome.sidePanel.open({ tabId: tab.id });
     
-    if (workflow) {
-      // Open side panel
-      await chrome.sidePanel.open({ windowId: tab.windowId });
-      
-      // Execute workflow with selected text
-      setTimeout(() => {
-        chrome.runtime.sendMessage({
-          action: 'executeWorkflow',
-          workflowId: workflow.id,
-          text: info.selectionText,
-          context: {
-            url: info.pageUrl,
-            title: tab.title,
-            selection: info.selectionText
-          }
-        });
-      }, 500);
+    try {
+      await chrome.tabs.sendMessage(tab.id, {
+        action: 'executeWorkflow',
+        workflowId: info.menuItemId,
+        text: info.selectionText
+      });
+    } catch (error) {
+      console.log('Could not send message to tab:', error);
     }
   }
 });
 
-// Handle messages from side panel
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'executeWebhook') {
-    // Execute webhook and send response
-    executeWebhook(message.webhookUrl, message.data)
-      .then(result => {
-        sendResponse(result);
-        
-        // Update badge based on result
-        updateBadge(result.success);
-      })
-      .catch(error => {
-        sendResponse({
-          success: false,
-          error: error.message
-        });
-        updateBadge(false);
-      });
-    
-    // Return true to indicate async response
-    return true;
-  }
-  
-  if (message.action === 'refreshWorkflows') {
-    // Reload workflows and recreate context menus
-    loadWorkflows().then(() => {
-      createContextMenus();
-      sendResponse({ success: true });
-    });
-    return true;
-  }
-  
-  if (message.action === 'updateBadge') {
-    updateBadge(message.success, message.text);
-    sendResponse({ success: true });
-    return true;
-  }
-  
-  if (message.action === 'openPlatform') {
-    chrome.tabs.create({ url: 'http://localhost:3333' });
-    sendResponse({ success: true });
-    return true;
-  }
-});
-
-// Execute webhook
-async function executeWebhook(webhookUrl, data) {
+// Update badge based on platform status
+async function updateBadge() {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(data),
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    const response = await fetch('http://localhost:3333/api/health');
+    const data = await response.json();
+    
+    if (data.status === 'ok') {
+      chrome.action.setBadgeText({ text: '✓' });
+      chrome.action.setBadgeBackgroundColor({ color: '#10b981' });
+    } else {
+      chrome.action.setBadgeText({ text: '!' });
+      chrome.action.setBadgeBackgroundColor({ color: '#ef4444' });
     }
+  } catch (error) {
+    chrome.action.setBadgeText({ text: '✗' });
+    chrome.action.setBadgeBackgroundColor({ color: '#ef4444' });
+  }
+}
 
-    const result = await response.json();
+// Handle extension icon click
+chrome.action.onClicked.addListener(async (tab) => {
+  await chrome.sidePanel.open({ tabId: tab.id });
+});
+
+// Handle messages from content scripts or side panel
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  switch (message.action) {
+    case 'updateBadge':
+      updateBadge();
+      sendResponse({ success: true });
+      break;
+      
+    case 'checkPlatformStatus':
+      checkPlatformStatus().then(sendResponse);
+      return true; // Keep message channel open for async response
+      
+    default:
+      sendResponse({ error: 'Unknown action' });
+  }
+});
+
+// Check platform status
+async function checkPlatformStatus() {
+  try {
+    const response = await fetch('http://localhost:3333/api/health');
+    const data = await response.json();
     
     return {
       success: true,
-      data: result,
-      timestamp: new Date().toISOString()
+      status: data.status,
+      message: data.message,
+      timestamp: data.timestamp
     };
   } catch (error) {
-    if (error.name === 'AbortError') {
-      return {
-        success: false,
-        error: 'Request timeout - workflow took too long to execute'
-      };
-    }
-
     return {
       success: false,
-      error: error.message || 'Failed to execute workflow'
+      error: error.message
     };
   }
 }
 
-// Update extension badge
-function updateBadge(success, text = null) {
-  if (text) {
-    chrome.action.setBadgeText({ text });
-  } else if (success) {
-    chrome.action.setBadgeText({ text: '✓' });
-    chrome.action.setBadgeBackgroundColor({ color: '#10b981' }); // Green
-    
-    // Clear badge after 3 seconds
-    setTimeout(() => {
-      chrome.action.setBadgeText({ text: '' });
-    }, 3000);
-  } else {
-    chrome.action.setBadgeText({ text: '✗' });
-    chrome.action.setBadgeBackgroundColor({ color: '#ef4444' }); // Red
-    
-    // Clear badge after 3 seconds
-    setTimeout(() => {
-      chrome.action.setBadgeText({ text: '' });
-    }, 3000);
-  }
-}
+// Handle extension startup
+chrome.runtime.onStartup.addListener(() => {
+  console.log('Chrome AI Workflows extension started');
+  updateBadge();
+});
 
-// Listen for storage changes to update workflows
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'sync' && changes.workflows) {
-    loadWorkflows().then(() => {
-      createContextMenus();
-    });
+// Handle tab updates (for badge updates)
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab.url) {
+    // Update badge when tab loads
+    updateBadge();
   }
 });
 
-console.log('Chrome AI Workflows background service worker loaded');
-
+console.log('Chrome AI Workflows background script loaded');

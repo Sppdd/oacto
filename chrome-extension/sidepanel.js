@@ -1,455 +1,370 @@
-// Chrome AI Workflows Extension - Side Panel Logic
+// Side Panel Main Logic
+// Handles UI interactions and workflow execution
 
-// Global variables
-let storageManager;
-let n8nClient;
+// Global instances
+let platformAPI;
 let chromeAIClient;
 let workflows = [];
-let currentWorkflow = null;
-let chatHistory = [];
+let executionHistory = [];
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('Side panel initialized');
+  console.log('Chrome AI Workflows side panel loaded');
   
   // Initialize clients
-  storageManager = new StorageManager();
-  
-  const settings = await storageManager.getSettings();
-  n8nClient = new N8nClient(settings.n8nUrl, settings.n8nApiKey);
+  platformAPI = new PlatformAPI();
   chromeAIClient = new ChromeAIClient();
   
-  // Load initial data
-  await loadWorkflows();
-  await loadChatHistory();
-  await checkStatuses();
+  // Load saved data
+  await loadSavedData();
   
   // Setup event listeners
   setupEventListeners();
   
-  // Listen for messages from background script
-  chrome.runtime.onMessage.addListener(handleBackgroundMessage);
+  // Initialize UI
+  await initializeUI();
+  
+  // Check connections
+  await checkConnections();
 });
 
-// Load workflows from storage and n8n
-async function loadWorkflows() {
+// Load saved data from storage
+async function loadSavedData() {
   try {
-    // Load from storage first
-    const storedWorkflows = await storageManager.getWorkflows();
-    
-    // If storage is empty, use defaults
-    if (!storedWorkflows || storedWorkflows.length === 0) {
-      workflows = [...DEFAULT_WORKFLOWS];
-      await storageManager.saveWorkflows(workflows);
-    } else {
-      workflows = storedWorkflows;
-    }
-    
-    // Populate dropdown
-    populateWorkflowSelector();
-    
-    console.log('Loaded workflows:', workflows.length);
+    const result = await chrome.storage.local.get(['executionHistory', 'workflows']);
+    executionHistory = result.executionHistory || [];
+    workflows = result.workflows || [];
   } catch (error) {
-    console.error('Error loading workflows:', error);
-    showError('Failed to load workflows: ' + error.message);
+    console.log('Could not load saved data:', error);
   }
 }
 
-// Populate workflow selector dropdown
-function populateWorkflowSelector() {
-  const selector = document.getElementById('workflow-selector');
-  selector.innerHTML = '<option value="">Choose a workflow...</option>';
-  
-  workflows.forEach(workflow => {
-    const option = document.createElement('option');
-    option.value = workflow.id;
-    option.textContent = `${workflow.icon} ${workflow.name}`;
-    selector.appendChild(option);
-  });
-}
-
-// Load chat history
-async function loadChatHistory() {
+// Save data to storage
+async function saveData() {
   try {
-    chatHistory = await storageManager.getChatHistory();
-    renderChatHistory();
+    await chrome.storage.local.set({
+      executionHistory: executionHistory,
+      workflows: workflows
+    });
   } catch (error) {
-    console.error('Error loading chat history:', error);
-  }
-}
-
-// Render chat history
-function renderChatHistory() {
-  const historyList = document.getElementById('history-list');
-  
-  if (chatHistory.length === 0) {
-    historyList.innerHTML = '<div class="empty-state"><p>No executions yet</p></div>';
-    return;
-  }
-  
-  historyList.innerHTML = '';
-  
-  // Show most recent first
-  const recent = [...chatHistory].reverse().slice(0, 20);
-  
-  recent.forEach(item => {
-    const historyItem = createHistoryItem(item);
-    historyList.appendChild(historyItem);
-  });
-}
-
-// Create history item element
-function createHistoryItem(item) {
-  const div = document.createElement('div');
-  div.className = 'history-item' + (item.success ? '' : ' error');
-  
-  const time = new Date(item.timestamp);
-  const timeStr = time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  
-  div.innerHTML = `
-    <div class="history-item-header">
-      <span class="history-workflow">${item.workflowName}</span>
-      <span class="history-time">${timeStr}</span>
-    </div>
-    <div class="history-input">Input: ${truncate(item.input, 50)}</div>
-    <div class="history-output">${item.success ? truncate(item.output, 60) : 'Error: ' + item.error}</div>
-  `;
-  
-  // Click to view details
-  div.addEventListener('click', () => {
-    showHistoryDetails(item);
-  });
-  
-  return div;
-}
-
-// Show history item details
-function showHistoryDetails(item) {
-  const resultsSection = document.getElementById('results-section');
-  const resultWorkflow = document.getElementById('result-workflow');
-  const executionTime = document.getElementById('execution-time');
-  const resultContent = document.getElementById('result-content');
-  
-  resultWorkflow.textContent = item.workflowName;
-  executionTime.textContent = new Date(item.timestamp).toLocaleString();
-  
-  if (item.success) {
-    resultContent.textContent = item.output;
-    resultContent.style.color = 'var(--text-primary)';
-  } else {
-    resultContent.textContent = 'Error: ' + item.error;
-    resultContent.style.color = 'var(--error)';
-  }
-  
-  resultsSection.style.display = 'block';
-  resultsSection.scrollIntoView({ behavior: 'smooth' });
-}
-
-// Check platform and AI status
-async function checkStatuses() {
-  // Check platform status
-  const platformStatus = document.getElementById('platform-status');
-  try {
-    const result = await n8nClient.testConnection();
-    if (result.success) {
-      platformStatus.classList.add('connected');
-      platformStatus.classList.remove('error');
-    } else {
-      platformStatus.classList.add('error');
-      platformStatus.classList.remove('connected');
-    }
-  } catch (error) {
-    platformStatus.classList.add('error');
-    platformStatus.classList.remove('connected');
-  }
-  
-  // Check AI status
-  const aiStatus = document.getElementById('ai-status');
-  try {
-    const result = await chromeAIClient.checkAvailability();
-    if (result.available) {
-      aiStatus.classList.add('connected');
-      aiStatus.classList.remove('error');
-    } else {
-      aiStatus.classList.add('error');
-      aiStatus.classList.remove('connected');
-      if (result.downloading) {
-        showError('AI model is downloading. Please wait...');
-      }
-    }
-  } catch (error) {
-    aiStatus.classList.add('error');
-    aiStatus.classList.remove('connected');
+    console.log('Could not save data:', error);
   }
 }
 
 // Setup event listeners
 function setupEventListeners() {
-  // Workflow selector
-  const workflowSelector = document.getElementById('workflow-selector');
-  workflowSelector.addEventListener('change', (e) => {
-    const workflowId = e.target.value;
-    currentWorkflow = workflows.find(w => w.id === workflowId);
-    
-    const executeBtn = document.getElementById('execute-workflow');
-    executeBtn.disabled = !currentWorkflow;
-  });
-  
-  // Execute button
-  const executeBtn = document.getElementById('execute-workflow');
-  executeBtn.addEventListener('click', executeCurrentWorkflow);
-  
   // Quick action buttons
-  document.getElementById('test-ai').addEventListener('click', testAI);
+  document.getElementById('test-ai').addEventListener('click', testChromeAI);
   document.getElementById('open-platform').addEventListener('click', openPlatform);
   document.getElementById('refresh-workflows').addEventListener('click', refreshWorkflows);
+  
+  // Workflow execution
+  document.getElementById('execute-workflow').addEventListener('click', executeWorkflow);
+  
+  // Input handling
+  const userInput = document.getElementById('user-input');
+  userInput.addEventListener('input', updateExecuteButton);
+  
+  // Workflow selector
+  document.getElementById('workflow-selector').addEventListener('change', updateExecuteButton);
   
   // Copy result button
   document.getElementById('copy-result').addEventListener('click', copyResult);
   
   // Clear history button
   document.getElementById('clear-history').addEventListener('click', clearHistory);
+  
+  // Listen for messages from background script
+  chrome.runtime.onMessage.addListener(handleMessage);
 }
 
-// Execute current workflow
-async function executeCurrentWorkflow() {
-  if (!currentWorkflow) {
-    showError('Please select a workflow first');
-    return;
+// Handle messages from background script
+function handleMessage(message, sender, sendResponse) {
+  switch (message.action) {
+    case 'setSelectedText':
+      setSelectedText(message.text);
+      break;
+      
+    case 'executeWorkflow':
+      executeWorkflowById(message.workflowId, message.text);
+      break;
+      
+    default:
+      console.log('Unknown message:', message);
   }
+}
+
+// Initialize UI
+async function initializeUI() {
+  // Load workflows
+  await loadWorkflows();
   
-  const input = document.getElementById('user-input').value.trim();
-  if (!input) {
-    showError('Please enter some input');
-    return;
+  // Update workflow selector
+  updateWorkflowSelector();
+  
+  // Render history
+  renderHistory();
+  
+  // Update execute button state
+  updateExecuteButton();
+}
+
+// Check connections
+async function checkConnections() {
+  // Check platform connection
+  const platformConnected = await platformAPI.checkConnection();
+  updateStatusIndicator('platform-status', platformConnected);
+  
+  // Check Chrome AI availability
+  const chromeAIAvailable = await chromeAIClient.checkAvailability();
+  updateStatusIndicator('ai-status', chromeAIAvailable);
+  
+  // Update badge
+  chrome.runtime.sendMessage({ action: 'updateBadge' });
+}
+
+// Update status indicator
+function updateStatusIndicator(elementId, connected) {
+  const indicator = document.getElementById(elementId);
+  if (indicator) {
+    indicator.className = `status-indicator ${connected ? 'connected' : 'error'}`;
   }
+}
+
+// Load workflows from platform
+async function loadWorkflows() {
+  const result = await platformAPI.getWorkflows();
   
-  // Show loading state
-  const executeBtn = document.getElementById('execute-workflow');
-  const executeText = document.getElementById('execute-text');
-  const originalText = executeText.textContent;
+  if (result.success) {
+    workflows = result.workflows;
+    console.log(`Loaded ${workflows.length} workflows from ${result.source}`);
+  } else {
+    console.log('Failed to load workflows:', result.error);
+    // Fallback to default workflows
+    workflows = DEFAULT_WORKFLOWS;
+  }
+}
+
+// Update workflow selector
+function updateWorkflowSelector() {
+  const selector = document.getElementById('workflow-selector');
+  selector.innerHTML = '<option value="">Choose a workflow...</option>';
   
-  executeBtn.classList.add('loading');
-  executeBtn.disabled = true;
-  executeText.innerHTML = '<span class="loading-indicator"></span> Running...';
+  workflows.forEach(workflow => {
+    const option = document.createElement('option');
+    option.value = workflow.id;
+    option.textContent = `${workflow.icon || '⚙️'} ${workflow.name}`;
+    if (workflow.active === false) {
+      option.textContent += ' (inactive)';
+    }
+    selector.appendChild(option);
+  });
+}
+
+// Update execute button state
+function updateExecuteButton() {
+  const button = document.getElementById('execute-workflow');
+  const input = document.getElementById('user-input');
+  const selector = document.getElementById('workflow-selector');
+  
+  const hasInput = input.value.trim().length > 0;
+  const hasWorkflow = selector.value.length > 0;
+  
+  button.disabled = !(hasInput && hasWorkflow);
+}
+
+// Test Chrome AI
+async function testChromeAI() {
+  const button = document.getElementById('test-ai');
+  const originalText = button.textContent;
+  
+  button.textContent = 'Testing...';
+  button.disabled = true;
   
   try {
-    // Get context data if workflow accepts it
-    let context = {};
-    if (currentWorkflow.acceptsContext) {
-      context = await getContextData();
-    }
+    const result = await platformAPI.testChromeAI('Write a short haiku about automation');
     
-    // Prepare payload
-    const payload = {
-      text: input,
-      context: context,
-      sessionId: generateSessionId()
-    };
-    
-    // Execute via background script (to avoid CORS)
-    const result = await new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage({
-        action: 'executeWebhook',
-        webhookUrl: currentWorkflow.webhookUrl,
-        data: payload
-      }, (response) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-        } else {
-          resolve(response);
-        }
-      });
-    });
-    
-    // Display result
     if (result.success) {
-      displayResult(result.data, currentWorkflow.name);
-      
-      // Save to history
-      await saveToHistory({
-        workflowId: currentWorkflow.id,
-        workflowName: currentWorkflow.name,
-        input: input,
-        output: extractResultText(result.data),
-        success: true
-      });
-      
-      // Clear input
-      document.getElementById('user-input').value = '';
-      
-      // Show success
-      showSuccess('Workflow executed successfully!');
+      showResult('AI Test', result.result, 'chrome-ai');
     } else {
-      throw new Error(result.error || 'Workflow execution failed');
+      showError('AI Test Failed', result.error);
     }
   } catch (error) {
-    console.error('Workflow execution error:', error);
-    showError('Failed to execute workflow: ' + error.message);
-    
-    // Save error to history
-    await saveToHistory({
-      workflowId: currentWorkflow.id,
-      workflowName: currentWorkflow.name,
-      input: input,
-      error: error.message,
-      success: false
-    });
+    showError('AI Test Failed', error.message);
   } finally {
-    // Reset button state
-    executeBtn.classList.remove('loading');
-    executeBtn.disabled = false;
-    executeText.textContent = originalText;
-  }
-}
-
-// Get context data from current tab
-async function getContextData() {
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    
-    // Try to get selected text
-    let selection = '';
-    try {
-      const result = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: () => window.getSelection().toString()
-      });
-      selection = result[0]?.result || '';
-    } catch (e) {
-      console.log('Could not get selection:', e);
-    }
-    
-    return {
-      url: tab.url,
-      title: tab.title,
-      selection: selection
-    };
-  } catch (error) {
-    console.error('Error getting context:', error);
-    return {};
-  }
-}
-
-// Generate session ID for chat continuity
-function generateSessionId() {
-  return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-}
-
-// Extract result text from webhook response
-function extractResultText(data) {
-  // Handle different response formats
-  if (typeof data === 'string') {
-    return data;
-  }
-  
-  if (data.result) {
-    return data.result;
-  }
-  
-  if (data.output) {
-    return data.output;
-  }
-  
-  if (data.data) {
-    return extractResultText(data.data);
-  }
-  
-  // Fallback to JSON string
-  return JSON.stringify(data, null, 2);
-}
-
-// Display workflow result
-function displayResult(data, workflowName) {
-  const resultsSection = document.getElementById('results-section');
-  const resultWorkflow = document.getElementById('result-workflow');
-  const executionTime = document.getElementById('execution-time');
-  const resultContent = document.getElementById('result-content');
-  
-  resultWorkflow.textContent = workflowName;
-  executionTime.textContent = new Date().toLocaleTimeString();
-  resultContent.textContent = extractResultText(data);
-  resultContent.style.color = 'var(--text-primary)';
-  
-  resultsSection.style.display = 'block';
-  resultsSection.scrollIntoView({ behavior: 'smooth' });
-}
-
-// Save execution to history
-async function saveToHistory(item) {
-  await storageManager.addChatMessage(item);
-  chatHistory = await storageManager.getChatHistory();
-  renderChatHistory();
-}
-
-// Test AI availability
-async function testAI() {
-  try {
-    const result = await chromeAIClient.checkAvailability();
-    
-    if (result.available) {
-      // Test actual prompt
-      const testResult = await chromeAIClient.promptAI({
-        userPrompt: 'Say hello in exactly 3 words',
-        temperature: 0.8
-      });
-      
-      showSuccess('Chrome AI is working! Response: ' + testResult);
-    } else {
-      showError('Chrome AI not available: ' + result.reason);
-    }
-  } catch (error) {
-    showError('AI test failed: ' + error.message);
+    button.textContent = originalText;
+    button.disabled = false;
   }
 }
 
 // Open platform dashboard
 function openPlatform() {
-  chrome.runtime.sendMessage({ action: 'openPlatform' });
+  chrome.tabs.create({ url: 'http://localhost:3333' });
 }
 
-// Refresh workflows from n8n
+// Refresh workflows
 async function refreshWorkflows() {
+  const button = document.getElementById('refresh-workflows');
+  const originalText = button.textContent;
+  
+  button.textContent = 'Refreshing...';
+  button.disabled = true;
+  
   try {
-    const result = await n8nClient.fetchWorkflows();
+    await loadWorkflows();
+    updateWorkflowSelector();
+    showSuccess('Workflows refreshed successfully');
+  } catch (error) {
+    showError('Failed to refresh workflows', error.message);
+  } finally {
+    button.textContent = originalText;
+    button.disabled = false;
+  }
+}
+
+// Execute workflow
+async function executeWorkflow() {
+  const selector = document.getElementById('workflow-selector');
+  const input = document.getElementById('user-input');
+  
+  const workflowId = selector.value;
+  const inputText = input.value.trim();
+  
+  if (!workflowId || !inputText) {
+    return;
+  }
+  
+  await executeWorkflowById(workflowId, inputText);
+}
+
+// Execute workflow by ID
+async function executeWorkflowById(workflowId, inputText) {
+  const workflow = workflows.find(w => w.id === workflowId);
+  if (!workflow) {
+    showError('Workflow not found', `Workflow ${workflowId} not found`);
+    return;
+  }
+  
+  const executeButton = document.getElementById('execute-workflow');
+  const executeText = document.getElementById('execute-text');
+  
+  // Update UI for execution
+  executeButton.disabled = true;
+  executeText.textContent = 'Executing...';
+  
+  const startTime = Date.now();
+  
+  try {
+    // Try platform execution first
+    const result = await platformAPI.executeWorkflow(workflowId, inputText, {
+      systemPrompt: workflow.systemPrompt,
+      temperature: workflow.temperature || 0.8,
+      webhookUrl: workflow.webhookUrl,
+      useChromeAI: false  // Changed from true - prefer n8n execution
+    });
     
-    if (result.success && result.workflows.length > 0) {
-      // Merge with existing workflows
-      const newWorkflows = result.workflows
-        .filter(nw => nw.webhookUrl) // Only workflows with webhooks
-        .map(nw => ({
-          id: nw.id,
-          name: nw.name,
-          description: `n8n workflow (${nw.nodes} nodes)`,
-          webhookUrl: nw.webhookUrl,
-          icon: '⚙️',
-          method: 'POST',
-          acceptsContext: true,
-          showInContextMenu: false,
-          category: 'n8n'
-        }));
-      
-      // Add to existing workflows (avoid duplicates)
-      newWorkflows.forEach(nw => {
-        const exists = workflows.find(w => w.id === nw.id);
-        if (!exists) {
-          workflows.push(nw);
-        }
-      });
-      
-      await storageManager.saveWorkflows(workflows);
-      populateWorkflowSelector();
-      
-      // Notify background to update context menus
-      chrome.runtime.sendMessage({ action: 'refreshWorkflows' });
-      
-      showSuccess(`Loaded ${newWorkflows.length} workflows from n8n`);
+    const executionTime = Date.now() - startTime;
+    
+    if (result.success) {
+      showResult(workflow.name, result.result, workflowId, executionTime);
+      addToHistory(workflow, inputText, result.result, executionTime);
     } else {
-      showError('No workflows found in n8n. Make sure n8n is running.');
+      // Handle specific error cases
+      if (result.method === 'webhook-test-mode' || result.method === 'n8n-api-test-mode') {
+        showError('Workflow Not Activated', `${result.error}\n\n${result.hint}`);
+      } else {
+        showError('Execution Failed', result.error);
+      }
     }
   } catch (error) {
-    showError('Failed to refresh workflows: ' + error.message);
+    showError('Execution Failed', error.message);
+  } finally {
+    executeButton.disabled = false;
+    executeText.textContent = 'Run Workflow';
   }
+}
+
+// Show result
+function showResult(workflowName, result, workflowId, executionTime) {
+  const resultsSection = document.getElementById('results-section');
+  const resultWorkflow = document.getElementById('result-workflow');
+  const resultContent = document.getElementById('result-content');
+  const executionTimeEl = document.getElementById('execution-time');
+  
+  // Extract method if result is an object
+  let displayResult = result;
+  let method = 'unknown';
+  
+  if (typeof result === 'object' && result.method) {
+    method = result.method;
+    displayResult = result.result || JSON.stringify(result);
+  }
+  
+  resultWorkflow.textContent = `${workflowName} (${method})`;
+  resultContent.textContent = typeof displayResult === 'string' 
+    ? displayResult 
+    : JSON.stringify(displayResult, null, 2);
+  executionTimeEl.textContent = `${executionTime || 0}ms`;
+  
+  resultsSection.style.display = 'block';
+  resultsSection.classList.add('fade-in');
+  
+  // Scroll to results
+  resultsSection.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Show error
+function showError(title, message) {
+  const resultsSection = document.getElementById('results-section');
+  const resultWorkflow = document.getElementById('result-workflow');
+  const resultContent = document.getElementById('result-content');
+  const executionTimeEl = document.getElementById('execution-time');
+  
+  resultWorkflow.textContent = title;
+  resultContent.textContent = `Error: ${message}`;
+  resultContent.style.color = 'var(--error)';
+  executionTimeEl.textContent = '';
+  
+  resultsSection.style.display = 'block';
+  resultsSection.classList.add('fade-in');
+}
+
+// Show success message
+function showSuccess(message) {
+  // Create temporary success message
+  const successDiv = document.createElement('div');
+  successDiv.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--success);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    z-index: 1000;
+    animation: slideIn 0.3s ease-out;
+  `;
+  successDiv.textContent = message;
+  
+  document.body.appendChild(successDiv);
+  
+  setTimeout(() => {
+    successDiv.remove();
+  }, 3000);
+}
+
+// Set selected text
+function setSelectedText(text) {
+  const input = document.getElementById('user-input');
+  const selectedTextDiv = document.getElementById('selected-text');
+  const selectedTextContent = document.getElementById('selected-text-content');
+  
+  input.value = text;
+  selectedTextContent.textContent = text;
+  selectedTextDiv.style.display = 'block';
+  
+  updateExecuteButton();
 }
 
 // Copy result to clipboard
@@ -459,110 +374,84 @@ async function copyResult() {
   
   try {
     await navigator.clipboard.writeText(text);
-    
-    const copyBtn = document.getElementById('copy-result');
-    const originalText = copyBtn.innerHTML;
-    copyBtn.innerHTML = '✓ Copied';
-    
-    setTimeout(() => {
-      copyBtn.innerHTML = originalText;
-    }, 2000);
+    showSuccess('Copied to clipboard');
   } catch (error) {
-    showError('Failed to copy: ' + error.message);
+    console.log('Could not copy to clipboard:', error);
   }
 }
 
-// Clear chat history
-async function clearHistory() {
-  if (confirm('Clear all execution history?')) {
-    await storageManager.clearChatHistory();
-    chatHistory = [];
-    renderChatHistory();
-    showSuccess('History cleared');
+// Add to execution history
+function addToHistory(workflow, input, result, executionTime) {
+  const historyItem = {
+    id: Date.now(),
+    workflowId: workflow.id,
+    workflowName: workflow.name,
+    input: input.substring(0, 100) + (input.length > 100 ? '...' : ''),
+    result: result.substring(0, 200) + (result.length > 200 ? '...' : ''),
+    timestamp: new Date().toISOString(),
+    executionTime: executionTime
+  };
+  
+  executionHistory.unshift(historyItem);
+  
+  // Keep only last 50 items
+  if (executionHistory.length > 50) {
+    executionHistory = executionHistory.slice(0, 50);
+  }
+  
+  saveData();
+  renderHistory();
+}
+
+// Render execution history
+function renderHistory() {
+  const historyList = document.getElementById('history-list');
+  
+  if (executionHistory.length === 0) {
+    historyList.innerHTML = '<div class="empty-state"><p>No executions yet</p></div>';
+    return;
+  }
+  
+  historyList.innerHTML = executionHistory.map(item => `
+    <div class="history-item" onclick="loadHistoryItem('${item.id}')">
+      <div class="history-item-header">
+        <span class="history-workflow">${item.workflowName}</span>
+        <span class="history-time">${new Date(item.timestamp).toLocaleTimeString()}</span>
+      </div>
+      <div class="history-preview">${item.input}</div>
+    </div>
+  `).join('');
+}
+
+// Load history item
+function loadHistoryItem(itemId) {
+  const item = executionHistory.find(h => h.id == itemId);
+  if (item) {
+    const input = document.getElementById('user-input');
+    const selector = document.getElementById('workflow-selector');
+    
+    input.value = item.input;
+    selector.value = item.workflowId;
+    
+    updateExecuteButton();
   }
 }
 
-// Handle messages from background script
-function handleBackgroundMessage(message, sender, sendResponse) {
-  if (message.action === 'setSelectedText') {
-    // Set selected text in input
-    const userInput = document.getElementById('user-input');
-    userInput.value = message.text;
-    
-    // Show selected text indicator
-    const selectedTextDiv = document.getElementById('selected-text');
-    const selectedTextContent = document.getElementById('selected-text-content');
-    selectedTextContent.textContent = truncate(message.text, 200);
-    selectedTextDiv.style.display = 'block';
-    
-    sendResponse({ success: true });
+// Clear history
+function clearHistory() {
+  executionHistory = [];
+  saveData();
+  renderHistory();
+}
+
+// Add CSS animation for slideIn
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
   }
-  
-  if (message.action === 'executeWorkflow') {
-    // Auto-execute workflow
-    const userInput = document.getElementById('user-input');
-    userInput.value = message.text;
-    
-    // Select workflow
-    const workflowSelector = document.getElementById('workflow-selector');
-    workflowSelector.value = message.workflowId;
-    
-    currentWorkflow = workflows.find(w => w.id === message.workflowId);
-    
-    // Execute after short delay
-    setTimeout(() => {
-      executeCurrentWorkflow();
-    }, 500);
-    
-    sendResponse({ success: true });
-  }
-}
+`;
+document.head.appendChild(style);
 
-// Utility functions
-function truncate(text, maxLength) {
-  if (!text) return '';
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + '...';
-}
-
-function showError(message) {
-  // Remove any existing messages
-  const existing = document.querySelector('.error-message');
-  if (existing) existing.remove();
-  
-  const div = document.createElement('div');
-  div.className = 'error-message';
-  div.textContent = message;
-  
-  document.querySelector('.extension-container').insertBefore(
-    div,
-    document.querySelector('.workflow-section')
-  );
-  
-  // Auto-remove after 5 seconds
-  setTimeout(() => div.remove(), 5000);
-}
-
-function showSuccess(message) {
-  // Remove any existing messages
-  const existing = document.querySelector('.success-message');
-  if (existing) existing.remove();
-  
-  const div = document.createElement('div');
-  div.className = 'success-message';
-  div.textContent = message;
-  
-  document.querySelector('.extension-container').insertBefore(
-    div,
-    document.querySelector('.workflow-section')
-  );
-  
-  // Auto-remove after 3 seconds
-  setTimeout(() => div.remove(), 3000);
-}
-
-// Refresh statuses every 30 seconds
-setInterval(checkStatuses, 30000);
-
-console.log('Side panel script loaded');
-
+console.log('Chrome AI Workflows side panel script loaded');

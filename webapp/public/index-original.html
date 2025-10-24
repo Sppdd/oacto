@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark light">
+  <meta http-equiv="origin-trial" content="AoXwZGsUZlGEyuueX5nR6tujynrCfWhNWQnZcHTy3AZkXtCMULt/UJs6+/1Bp5jVw7Ue96Tcyf1IO8IRUMimAgcAAABeeyJvcmlnaW4iOiJodHRwczovL2Nocm9tZS5kZXY6NDQzIiwiZmVhdHVyZSI6IkFJUHJvbXB0QVBJTXVsdGltb2RhbElucHV0IiwiZXhwaXJ5IjoxNzc0MzEwNDAwfQ==">
+  <title>Chrome AI Automation Platform</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" type="image/png" sizes="128x128" href="icon128.png">
+  <link rel="icon" type="image/png" sizes="48x48" href="icon48.png">
+  <link rel="icon" type="image/png" sizes="24x24" href="icon24.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="icon16.png">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+  <script>
+    if (!isSecureContext) location.protocol = "https:";
+  </script>
+</head>
+<body>
+  <!-- Navigation Sidebar -->
+  <nav class="sidebar" id="sidebar">
+    <div class="logo">
+      <img src="icon48.png" alt="Chrome AI">
+      <span class="logo-text">Chrome AI</span>
+    </div>
+    
+    <div class="nav-items">
+      <a href="#" class="nav-item active" data-view="dashboard">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Dashboard</span>
+      </a>
+      <a href="#" class="nav-item" data-view="workflows">
+        <span class="nav-icon">⚙️</span>
+        <span class="nav-label">Workflows</span>
+      </a>
+      <a href="#" class="nav-item" data-view="sessions">
+        <span class="nav-icon">🧠</span>
+        <span class="nav-label">AI Sessions</span>
+      </a>
+      <a href="#" class="nav-item" data-view="n8n">
+        <span class="nav-icon">🔗</span>
+        <span class="nav-label">n8n Canvas</span>
+      </a>
+      <a href="#" class="nav-item" data-view="guide">
+        <span class="nav-icon">📖</span>
+        <span class="nav-label">Guide</span>
+      </a>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="status-indicator">
+        <span class="pulse-dot" id="connection-pulse"></span>
+        <span class="status-text" id="connection-text">Connecting...</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content Area -->
+  <main class="main-content">
+    <!-- Dashboard View -->
+    <div class="view active" id="view-dashboard">
+      <header class="page-header">
+        <div>
+          <h1 class="page-title">Dashboard</h1>
+          <p class="page-subtitle">Chrome AI Automation Platform</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-secondary" id="refresh-status">
+            <span>🔄</span> Refresh
+          </button>
+        </div>
+      </header>
+
+      <!-- Status Cards -->
+      <div class="cards-grid">
+        <div class="status-card" id="card-ai">
+          <div class="card-icon">🤖</div>
+          <div class="card-content">
+            <h3 class="card-title">Chrome AI</h3>
+            <p class="card-status" id="ai-status-text">Checking...</p>
+            <div class="card-meta" id="ai-meta"></div>
+          </div>
+        </div>
+
+        <div class="status-card" id="card-server">
+          <div class="card-icon">🔌</div>
+          <div class="card-content">
+            <h3 class="card-title">Server</h3>
+            <p class="card-status" id="server-status-text">Connecting...</p>
+            <div class="card-meta">localhost:3333</div>
+          </div>
+        </div>
+
+        <div class="status-card" id="card-workflows">
+          <div class="card-icon">⚙️</div>
+          <div class="card-content">
+            <h3 class="card-title">Workflows</h3>
+            <p class="card-status" id="workflow-count">0 Active</p>
+            <div class="card-meta">Ready to run</div>
+          </div>
+        </div>
+
+        <div class="status-card" id="card-sessions">
+          <div class="card-icon">🧠</div>
+          <div class="card-content">
+            <h3 class="card-title">AI Sessions</h3>
+            <p class="card-status" id="session-count">0 Active</p>
+            <div class="card-meta">Auto-managed</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="section">
+        <h2 class="section-title">Quick Actions</h2>
+        <div class="action-buttons">
+          <button class="action-btn" data-action="test-ai">
+            <span class="action-icon">✨</span>
+            <span class="action-label">Test AI</span>
+          </button>
+          <button class="action-btn" data-action="view-workflows">
+            <span class="action-icon">📋</span>
+            <span class="action-label">View Workflows</span>
+          </button>
+          <button class="action-btn" data-action="open-n8n">
+            <span class="action-icon">🚀</span>
+            <span class="action-label">Open n8n</span>
+          </button>
+          <button class="action-btn" data-action="view-guide">
+            <span class="action-icon">📚</span>
+            <span class="action-label">View Guide</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Activity Log -->
+      <div class="section">
+        <h2 class="section-title">Activity Log</h2>
+        <div class="activity-log" id="activity-log">
+          <div class="log-entry info">
+            <span class="log-time">--:--:--</span>
+            <span class="log-message">System initializing...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Workflows View -->
+    <div class="view" id="view-workflows">
+      <header class="page-header">
+        <div>
+          <h1 class="page-title">Workflows</h1>
+          <p class="page-subtitle">Manage and run your n8n workflows</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-primary" id="create-workflow">
+            <span>➕</span> Create Workflow
+          </button>
+        </div>
+      </header>
+
+      <div class="workflows-container" id="workflows-container">
+        <div class="empty-state">
+          <div class="empty-icon">📋</div>
+          <h3>No workflows yet</h3>
+          <p>Create your first workflow in n8n or import an example</p>
+          <button class="btn btn-primary" id="import-example">Import Example</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Sessions View -->
+    <div class="view" id="view-sessions">
+      <header class="page-header">
+        <div>
+          <h1 class="page-title">AI Sessions</h1>
+          <p class="page-subtitle">Manage Chrome AI conversation sessions</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-primary" id="create-session">
+            <span>➕</span> New Session
+          </button>
+        </div>
+      </header>
+
+      <div class="sessions-container" id="sessions-container">
+        <!-- Sessions will be dynamically loaded -->
+      </div>
+    </div>
+
+    <!-- n8n Canvas View -->
+    <div class="view" id="view-n8n">
+      <header class="page-header">
+        <div>
+          <h1 class="page-title">n8n Canvas</h1>
+          <p class="page-subtitle">Embedded workflow editor</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-secondary" id="open-n8n-external">
+            <span>🔗</span> Open in New Tab
+          </button>
+        </div>
+      </header>
+
+      <div class="n8n-embed-container">
+        <iframe id="n8n-iframe" src="http://localhost:5678" frameborder="0"></iframe>
+      </div>
+    </div>
+
+    <!-- Guide View -->
+    <div class="view" id="view-guide">
+      <header class="page-header">
+        <div>
+          <h1 class="page-title">Getting Started Guide</h1>
+          <p class="page-subtitle">Learn how to use Chrome AI Automation Platform</p>
+        </div>
+      </header>
+
+      <div class="guide-content">
+        <div class="guide-section">
+          <div class="guide-step">
+            <div class="step-number">1</div>
+            <div class="step-content">
+              <h3>Enable Chrome AI</h3>
+              <p>Join the Chrome AI Early Preview Program and enable the required flags:</p>
+              <ul>
+                <li>Visit <code>chrome://flags</code></li>
+                <li>Enable "Prompt API for Gemini Nano"</li>
+                <li>Enable "Enables optimization guide on device"</li>
+                <li>Restart Chrome</li>
+              </ul>
+              <a href="https://goo.gle/chrome-ai-dev-preview-join" target="_blank" class="btn btn-link">Join Preview Program →</a>
+            </div>
+          </div>
+
+          <div class="guide-step">
+            <div class="step-number">2</div>
+            <div class="step-content">
+              <h3>Download AI Model</h3>
+              <p>Chrome needs to download the Gemini Nano model (~1.5GB):</p>
+              <ul>
+                <li>Visit <code>chrome://components/</code></li>
+                <li>Find "Optimization Guide On Device Model"</li>
+                <li>Click "Check for update"</li>
+                <li>Wait 5-10 minutes for download</li>
+                <li>Restart Chrome when complete</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="guide-step">
+            <div class="step-number">3</div>
+            <div class="step-content">
+              <h3>Install n8n Nodes</h3>
+              <p>Install the Chrome AI nodes package in n8n:</p>
+              <div class="code-block">
+cd packages/n8n-nodes-chrome-ai
+npm install && npm run build && npm link
+cd ~/.n8n/custom
+npm link n8n-nodes-chrome-ai
+              </div>
+            </div>
+          </div>
+
+          <div class="guide-step">
+            <div class="step-number">4</div>
+            <div class="step-content">
+              <h3>Create Workflows</h3>
+              <p>Start building AI-powered automation workflows:</p>
+              <ul>
+                <li>Open n8n at <code>localhost:5678</code></li>
+                <li>Add Chrome AI credentials with bridge URL: <code>http://localhost:3333</code></li>
+                <li>Use Chrome AI nodes in your workflows</li>
+                <li>Keep this tab open while workflows run</li>
+              </ul>
+              <button class="btn btn-primary" onclick="window.open('http://localhost:5678', '_blank')">Open n8n →</button>
+            </div>
+          </div>
+
+          <div class="guide-step">
+            <div class="step-number">5</div>
+            <div class="step-content">
+              <h3>Manage Sessions</h3>
+              <p>AI sessions are automatically managed for optimal performance:</p>
+              <ul>
+                <li>Sessions persist across workflow runs</li>
+                <li>System prompts are cached for efficiency</li>
+                <li>Sessions auto-cleanup when idle</li>
+                <li>View active sessions in the Sessions tab</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="guide-tips">
+          <h3>💡 Pro Tips</h3>
+          <ul>
+            <li><strong>Keep this tab open:</strong> Chrome AI only works while this page is active</li>
+            <li><strong>Use system prompts:</strong> Define AI behavior for consistent results</li>
+            <li><strong>Monitor sessions:</strong> Check the Sessions tab to see active conversations</li>
+            <li><strong>Import examples:</strong> Start with pre-built workflows from the Workflows tab</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Test AI Modal -->
+  <div class="modal" id="test-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Test Chrome AI</h2>
+        <button class="modal-close" id="close-test-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>System Prompt (optional)</label>
+          <textarea id="test-system-prompt" placeholder="You are a helpful assistant..." rows="2"></textarea>
+        </div>
+        <div class="form-group">
+          <label>User Prompt</label>
+          <textarea id="test-user-prompt" placeholder="Write a haiku about automation..." rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Temperature: <span id="temp-value">0.8</span></label>
+          <input type="range" id="test-temperature" min="0" max="2" step="0.1" value="0.8">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancel-test">Cancel</button>
+        <button class="btn btn-primary" id="run-test">Run Test</button>
+      </div>
+      <div class="test-result" id="test-result" style="display: none;"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script src="workflow-manager.js"></script>
+  <script src="session-manager.js"></script>
+</body>
+</html>
