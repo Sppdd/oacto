@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initializeAnimations();
   initializeNavigation();
   initializeModals();
+  checkOriginTrialTokens();
   checkAIAvailability();
   connectToServer();
   setupQuickActions();
@@ -135,6 +136,36 @@ function switchView(viewName) {
 }
 
 // ===========================
+// Origin Trial Tokens Check
+// ===========================
+
+function checkOriginTrialTokens() {
+  const tokens = window.CHROME_AI_TOKENS || {};
+  const injectedTokens = document.querySelectorAll('meta[http-equiv="origin-trial"]');
+
+  console.log('🔐 Origin Trial Tokens Status:');
+  console.log(`📊 Found ${injectedTokens.length} injected tokens`);
+
+  Object.entries(tokens).forEach(([feature, token]) => {
+    const status = token && token.trim() !== '' ? '✅ Configured' : '❌ Missing';
+    console.log(`   ${feature}: ${status}`);
+  });
+
+  // Log all injected tokens for debugging
+  injectedTokens.forEach((meta, index) => {
+    console.log(`🔑 Token ${index + 1}:`, meta.content.substring(0, 50) + '...');
+  });
+
+  // Update UI if needed
+  const tokenCount = Object.values(tokens).filter(token => token && token.trim() !== '').length;
+  if (tokenCount > 0) {
+    addLog(`✅ Loaded ${tokenCount} origin trial tokens`, 'success');
+  } else {
+    addLog('⚠️ No origin trial tokens configured. Chrome AI APIs may not work.', 'warning');
+  }
+}
+
+// ===========================
 // Chrome AI Availability Check
 // ===========================
 
@@ -143,7 +174,7 @@ async function checkAIAvailability() {
   const statusMeta = document.getElementById('ai-meta');
   const pulseDot = document.getElementById('connection-pulse');
   const connectionText = document.getElementById('connection-text');
-  
+
   try {
     // Check for LanguageModel in global scope
     if (!('LanguageModel' in self)) {
@@ -157,6 +188,44 @@ async function checkAIAvailability() {
       return;
     }
 
+    // Check which specific APIs are available
+    const availableAPIs = [];
+    const missingAPIs = [];
+
+    // Check each API
+    if ('LanguageModel' in self) availableAPIs.push('Prompt AI');
+    else missingAPIs.push('Prompt AI');
+
+    if ('Writer' in self) {
+      try {
+        const writerAvailability = await Writer.availability();
+        if (writerAvailability === 'readily') {
+          availableAPIs.push('Writer');
+        } else {
+          missingAPIs.push(`Writer (${writerAvailability})`);
+        }
+      } catch (error) {
+        missingAPIs.push('Writer (error)');
+      }
+    } else {
+      missingAPIs.push('Writer');
+    }
+
+    if ('Summarizer' in self) availableAPIs.push('Summarizer');
+    else missingAPIs.push('Summarizer');
+
+    if ('Translator' in self) availableAPIs.push('Translator');
+    else missingAPIs.push('Translator');
+
+    if ('Rewriter' in self) availableAPIs.push('Rewriter');
+    else missingAPIs.push('Rewriter');
+
+    if ('Proofreader' in self) availableAPIs.push('Proofreader');
+    else missingAPIs.push('Proofreader');
+
+    if ('LanguageDetector' in self) availableAPIs.push('Language Detector');
+    else missingAPIs.push('Language Detector');
+
     // Test if we can create a session
     try {
       const testSession = await LanguageModel.create({
@@ -167,11 +236,16 @@ async function checkAIAvailability() {
       
       // If we get here, AI is ready
       statusText.textContent = 'Ready ✓';
-      statusMeta.textContent = 'Gemini Nano active';
+      statusMeta.textContent = `${availableAPIs.length}/7 APIs available`;
       isAiAvailable = true;
       animateCardUpdate('card-ai', true);
       addLog('✅ Chrome AI is available and ready', 'success');
-      
+      addLog(`📊 Available APIs: ${availableAPIs.join(', ')}`, 'info');
+
+      if (missingAPIs.length > 0) {
+        addLog(`⚠️ Missing APIs: ${missingAPIs.join(', ')} (may need origin trial tokens)`, 'warning');
+      }
+
       // Clean up test session
       testSession.destroy();
       
@@ -181,11 +255,22 @@ async function checkAIAvailability() {
         statusText.textContent = 'Downloading...';
         statusMeta.textContent = 'Model downloading (~1.5GB)';
         addLog('⏳ AI model is downloading. Please wait...', 'warning');
-        
+
         // Check again after download
         setTimeout(checkAIAvailability, 5000);
       } else {
-        throw createError;
+        // Update status with more specific error info
+        statusText.textContent = 'Limited';
+        statusMeta.textContent = `${availableAPIs.length}/7 APIs available`;
+        pulseDot.classList.add('warning');
+        pulseDot.classList.remove('connected');
+        connectionText.textContent = 'AI Limited';
+
+        addLog(`⚠️ Chrome AI partially available: ${availableAPIs.join(', ')}`, 'warning');
+        if (missingAPIs.length > 0) {
+          addLog(`❌ Missing APIs: ${missingAPIs.join(', ')} - Check origin trial tokens`, 'error');
+        }
+        addLog(`💡 Error details: ${createError.message}`, 'info');
       }
     }
   } catch (error) {
@@ -333,17 +418,36 @@ async function executeWriter(params) {
 
   const { prompt, tone, format, length } = params;
 
-  const writer = await Writer.create({
-    tone: tone || 'neutral',
-    format: format || 'plain-text',
-    length: length || 'medium',
-  });
-
   try {
-    const result = await writer.write(prompt);
-    return result;
-  } finally {
-    writer.destroy();
+    // Check Writer API availability first
+    const availability = await Writer.availability();
+    console.log('Writer API availability:', availability);
+
+    if (availability === 'unavailable') {
+      throw new Error('Chrome Writer API is not available. Please enable in chrome://flags');
+    }
+
+    if (availability === 'downloading' || availability === 'downloadable') {
+      throw new Error('Writer API model is still downloading. Please wait and try again.');
+    }
+
+    const writer = await Writer.create({
+      tone: tone || 'neutral',
+      format: format || 'plain-text',
+      length: length || 'medium',
+    });
+
+    try {
+      const result = await writer.write(prompt);
+      return result;
+    } finally {
+      writer.destroy();
+    }
+  } catch (error) {
+    if (error.message.includes('user gesture') || error.message.includes('Requires a user gesture')) {
+      throw new Error('Writer API requires user interaction. Please use the webapp interface instead of direct API calls.');
+    }
+    throw error;
   }
 }
 

@@ -466,6 +466,42 @@ When reporting issues:
 | "Model not downloaded" | No model | Download from chrome://components/ |
 | "No active tab" | Chrome closed | Open Chrome |
 | "Session creation failed" | AI busy | Retry or simplify prompt |
+| "Requires a user gesture" | Writer API limitation | Use Prompt AI instead |
+
+## Problem: Writer API fails in n8n workflows
+
+### Symptoms
+- Writer node returns 500 error
+- "Requires a user gesture" error message
+- Writer API works in webapp but not in n8n
+
+### Root Cause
+The Chrome Writer API requires user interaction and cannot be used in automated workflows like n8n.
+
+### Solutions
+
+**1. Use Chrome Prompt AI instead (Recommended):**
+```
+Chrome Prompt AI → Your workflow
+```
+The Prompt AI node provides similar text generation capabilities but works reliably in automated workflows.
+
+**2. Use webapp for Writer functionality:**
+- Open http://localhost:3333
+- Use the Writer API through the web interface
+- The webapp supports user interaction required by the Writer API
+
+**3. Replace Writer with Prompt AI in workflows:**
+```javascript
+// Instead of Writer node, use Prompt AI with system prompt
+System Prompt: "You are a professional writer. Write in a formal tone."
+User Prompt: "Write an email about {{topic}}"
+```
+
+**4. Alternative workflow pattern:**
+```
+Input Data → Prompt AI (with writing instructions) → Output
+```
 
 ---
 

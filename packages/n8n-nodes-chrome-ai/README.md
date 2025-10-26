@@ -9,7 +9,11 @@ Professional n8n nodes for Chrome's built-in AI APIs. Run **local, private, on-d
 - 🚀 **Zero Latency** - No API calls, instant responses
 - 💰 **Free Forever** - No API keys, no rate limits
 - 🛡️ **Privacy First** - Data never leaves your machine
-- 🌐 **Web App** - No extension needed, just open a webpage!
+- 🌐 **Web App** - with the extension or just open a webpage!
+
+## ⚠️ Important Notes
+
+**Writer API Limitation**: The Chrome Writer API requires user interaction and cannot be used in automated n8n workflows. If you need text generation functionality in n8n, please use the **Chrome Prompt AI** node instead, which provides similar capabilities but works reliably in automated workflows.
 
 ## 📦 Installation
 
@@ -134,7 +138,6 @@ pkill n8n && n8n start
 1. Enable flags: chrome://flags
 2. Download model: chrome://components/
 3. Refresh web app page
-4. Test: `window.ai` in console
 
 ## 📖 Example Workflows
 

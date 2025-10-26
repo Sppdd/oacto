@@ -133,6 +133,8 @@ app.post('/api/writer', async (req, res) => {
       });
     }
 
+    console.log('Writer API request:', { prompt: prompt.substring(0, 50) + '...', tone, format, length });
+
     const response = await callWebApp('writer', {
       prompt,
       tone,
@@ -146,15 +148,33 @@ app.post('/api/writer', async (req, res) => {
         result: response.value,
       });
     } else {
+      // Provide more specific error messages
+      let errorMessage = response.error || 'Writer request failed';
+
+      if (errorMessage.includes('user gesture') || errorMessage.includes('Requires a user gesture')) {
+        errorMessage = 'Writer API requires user interaction. Please use the webapp interface instead of direct API calls, or try using the Prompt AI node instead.';
+      } else if (errorMessage.includes('not available')) {
+        errorMessage = 'Chrome Writer API is not available. Please ensure you have enabled the Writer API in chrome://flags and have a valid origin trial token.';
+      } else if (errorMessage.includes('downloading') || errorMessage.includes('downloadable')) {
+        errorMessage = 'Writer API model is still downloading. Please wait for the download to complete and try again.';
+      }
+
       res.status(500).json({
         success: false,
-        error: response.error || 'Writer request failed',
+        error: errorMessage,
       });
     }
   } catch (error) {
+    console.error('Writer API error:', error);
+    let errorMessage = error.message;
+
+    if (errorMessage.includes('user gesture') || errorMessage.includes('Requires a user gesture')) {
+      errorMessage = 'Writer API requires user interaction. Please use the webapp interface instead of direct API calls.';
+    }
+
     res.status(500).json({
       success: false,
-      error: error.message,
+      error: errorMessage,
     });
   }
 });

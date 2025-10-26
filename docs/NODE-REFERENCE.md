@@ -52,6 +52,8 @@ All nodes share these characteristics:
 
 **Purpose**: Generate text with specific tone and length
 
+**⚠️ Important Limitation**: The Chrome Writer API requires user interaction and cannot be used in automated n8n workflows. If you encounter errors, please use the **Chrome Prompt AI** node instead, which provides similar functionality but works reliably in n8n.
+
 ### Parameters
 
 | Parameter | Type | Required | Options | Description |

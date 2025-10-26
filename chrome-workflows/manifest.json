@@ -1,0 +1,40 @@
+{
+    "manifest_version": 3,
+    "name": "Chrome Workflows",
+    "version": "1.0",
+    "description": "Trigger Chrome Workflows with Chrome AI nodes from any web page with a simple right-click. Automate faster, smarter.",
+    "author": "karrar Abuhdar",
+    "permissions": [
+      "storage",
+      "activeTab",
+      "scripting",
+      "contextMenus",
+      "notifications"
+    ],
+    "optional_host_permissions": [
+       "*://*/*"
+    ],
+    "background": {
+      "service_worker": "background.js"
+    },
+    "action": {
+      "default_popup": "popup/popup.html",
+      "default_icon": {
+        "16": "icons/icon16.png",
+        "32": "icons/icon32.png",
+        "48": "icons/icon48.png",
+        "128": "icons/icon128.png"
+      }
+    },
+    "icons": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    
+    "options_page": "manage_workflows/manage.html",
+    "content_security_policy": {
+      "extension_pages": "script-src 'self'; object-src 'self'"
+    }
+  }
