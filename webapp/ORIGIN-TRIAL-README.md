@@ -32,43 +32,33 @@ Origin trial tokens are special tokens provided by Google that enable experiment
 
 ## How to Configure Tokens
 
-1. **Edit the tokens.js file:**
-   ```bash
-   cd webapp/public/
-   nano tokens.js
+**IMPORTANT**: Tokens are now managed through **n8n credentials**, not the webapp configuration. This provides better security and easier management.
+
+### Step 1: Get Your Tokens
+1. Join the Chrome AI Early Preview Program: https://goo.gle/chrome-ai-dev-preview-join
+2. Generate tokens from: https://developer.chrome.com/origintrials/
+
+### Step 2: Configure in n8n
+1. **Open n8n** and go to **Settings → Credentials**
+2. **Create/Edit "Chrome AI API"** credential
+3. **Fill in your origin trial tokens** in the "Origin Trial Tokens" section:
+
+   ```
+   Prompt AI Token: [Your Prompt AI token]
+   Writer API Token: [Your Writer token]
+   Summarizer API Token: [Your Summarizer token]
+   Translator API Token: [Your Translator token]
+   Rewriter API Token: [Your Rewriter token]
+   Proofreader API Token: [Your Proofreader token]
+   Language Detector API Token: [Your Language Detector token]
    ```
 
-2. **Add your tokens:**
-   ```javascript
-   window.CHROME_AI_TOKENS = {
-     // Language Model / Prompt API (already configured)
-     'AIPromptAPIMultimodalInput': 'AoXwZGsUZlGEyuueX5nR6tujynrCfWhNWQnZcHTy3AZkXtCMULt/UJs6+/1Bp5jVw7Ue96Tcyf1IO8IRUMimAgcAAABeeyJvcmlnaW4iOiJodHRwczovL2Nocm9tZS5kZXY6NDQzIiwiZmVhdHVyZSI6IkFJUHJvbXB0QVBJTXVsdGltb2RhbElucHV0IiwiZXhwaXJ5IjoxNzc0MzEwNDAwfQ==',
+4. **Save the credential**
 
-     // Writer API - Add your token here
-     'WriterAPI': 'YOUR_WRITER_API_TOKEN_HERE',
-
-     // Summarizer API - Add your token here
-     'SummarizerAPI': 'YOUR_SUMMARIZER_API_TOKEN_HERE',
-
-     // Translator API - Add your token here
-     'TranslatorAPI': 'YOUR_TRANSLATOR_API_TOKEN_HERE',
-
-     // Rewriter API - Add your token here
-     'RewriterAPI': 'YOUR_REWRITER_API_TOKEN_HERE',
-
-     // Proofreader API - Add your token here
-     'ProofreaderAPI': 'YOUR_PROOFREADER_API_TOKEN_HERE',
-
-     // Language Detector API - Add your token here
-     'LanguageDetectorAPI': 'YOUR_LANGUAGE_DETECTOR_API_TOKEN_HERE'
-   };
-   ```
-
-3. **Restart the webapp:**
-   ```bash
-   cd webapp/
-   npm start
-   ```
+### Step 3: Use in Workflows
+- The tokens will be automatically sent to the webapp when workflows execute
+- The webapp will update its token configuration dynamically
+- No need to restart the webapp or modify any files
 
 ## Testing Token Configuration
 
@@ -77,17 +67,21 @@ Origin trial tokens are special tokens provided by Google that enable experiment
    http://localhost:3333
    ```
 
-2. **Check the browser console (F12):**
-   - Look for "🔐 Origin Trial Tokens Status" messages
-   - Should show which tokens are configured vs missing
+2. **Configure tokens in n8n:**
+   - Set up your Chrome AI API credentials in n8n with the tokens
+   - Create a test workflow with a Chrome AI node
 
-3. **Check the UI:**
-   - Dashboard should show "X/7 APIs available"
-   - Activity log will show token injection status
+3. **Execute the workflow:**
+   - The tokens will be sent automatically to the webapp
+   - Check browser console for "🔄 Updating tokens from n8n" messages
 
-4. **Test individual APIs:**
+4. **Check the UI:**
+   - Dashboard should show "X/7 APIs available" (updated with new tokens)
+   - Activity log will show token update confirmations
+
+5. **Test individual APIs:**
    - Use the "Test AI" button to verify Prompt AI works
-   - Check browser console for API availability messages
+   - Check browser console for API availability messages with updated tokens
 
 ## Troubleshooting
 

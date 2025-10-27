@@ -15,7 +15,7 @@ export class ChromeSummarizer implements INodeType {
     icon: 'file:chrome-summarizer.svg',
     group: ['transform'],
     version: 1,
-    description: 'Summarize text with Chrome built-in Summarizer API - Local & Private',
+    description: 'Summarize text with Chrome built-in Summarizer API - Local & Private. Falls back to Chrome Prompt AI if Summarizer API is unavailable. Fully compatible with n8n automation workflows.',
     defaults: {
       name: 'Chrome Summarizer',
     },
@@ -76,6 +76,30 @@ export class ChromeSummarizer implements INodeType {
         default: 'medium',
         description: 'Summary length',
       },
+      {
+        displayName: 'Session Management',
+        name: 'sessionOptions',
+        type: 'collection',
+        placeholder: 'Add Option',
+        default: {},
+        options: [
+          {
+            displayName: 'Session ID',
+            name: 'sessionId',
+            type: 'string',
+            default: '',
+            description: 'Existing session ID to continue conversation. Leave empty for new session.',
+            placeholder: 'Leave empty for new session',
+          },
+          {
+            displayName: 'Force New Session',
+            name: 'forceNewSession',
+            type: 'boolean',
+            default: false,
+            description: 'Force creation of a new session even if session ID is provided',
+          },
+        ],
+      },
     ],
   };
 
@@ -87,6 +111,7 @@ export class ChromeSummarizer implements INodeType {
     const client = new ChromeAiClient({
       bridgeUrl: credentials.bridgeUrl as string,
       apiKey: credentials.apiKey as string,
+      tokens: credentials.tokens as any,
     });
 
     const isHealthy = await client.healthCheck();
@@ -103,25 +128,37 @@ export class ChromeSummarizer implements INodeType {
         const type = this.getNodeParameter('type', i) as 'tl;dr' | 'key-points' | 'teaser' | 'headline';
         const format = this.getNodeParameter('format', i) as 'plain-text' | 'markdown';
         const length = this.getNodeParameter('length', i) as 'short' | 'medium' | 'long';
+        const sessionOptions = this.getNodeParameter('sessionOptions', i, {}) as {
+          sessionId?: string;
+          forceNewSession?: boolean;
+        };
 
-        const result = await client.summarizer({
+        const response = await client.summarizer({
           text,
           type,
           format,
           length,
+          sessionId: sessionOptions.sessionId,
+          forceNewSession: sessionOptions.forceNewSession,
         });
 
         returnData.push({
           json: {
             ...items[i].json,
-            summary: result,
+            summary: response.result,
+            sessionId: response.sessionId,
+            fallbackUsed: response.fallbackUsed || false,
+            originalApi: response.originalApi || null,
             _meta: {
               originalLength: text.length,
-              summaryLength: result.length,
+              summaryLength: response.result.length,
               type,
               format,
               length,
               timestamp: new Date().toISOString(),
+              sessionId: response.sessionId,
+              fallbackUsed: response.fallbackUsed || false,
+              originalApi: response.originalApi || 'Summarizer',
             },
           },
           pairedItem: i,

@@ -1,0 +1,183 @@
+Directory structure:
+└── mediarecorder-audio-prompt/
+    ├── index.html
+    ├── script.js
+    └── style.css
+
+
+Files Content:
+
+================================================
+FILE: mediarecorder-audio-prompt/index.html
+================================================
+<!DOCTYPE html>
+<!--
+  Copyright 2025 Google LLC
+  SPDX-License-Identifier: Apache-2.0
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎥</text></svg>"
+    />
+    <!-- AIPromptAPIMultimodalInput origin token expiring Mar 24, 2026 -->
+    <meta
+      http-equiv="origin-trial"
+      content="AoXwZGsUZlGEyuueX5nR6tujynrCfWhNWQnZcHTy3AZkXtCMULt/UJs6+/1Bp5jVw7Ue96Tcyf1IO8IRUMimAgcAAABeeyJvcmlnaW4iOiJodHRwczovL2Nocm9tZS5kZXY6NDQzIiwiZmVhdHVyZSI6IkFJUHJvbXB0QVBJTXVsdGltb2RhbElucHV0IiwiZXhwaXJ5IjoxNzc0MzEwNDAwfQ=="
+    />
+
+    <link rel="stylesheet" href="style.css" />
+    <script src="script.js" type="module"></script>
+  </head>
+  <body>
+    <h1>🎥 MediaRecorder + Audio Prompt API</h1>
+    <ol>
+      <li>
+        <label>
+          Record myself for 5s and transcribe:
+          <button id="button">Record</button>
+        </label>
+      </li>
+      <li>
+        <label>
+          Select a file to transcribe:
+          <input type="file" id="inputFile" />
+          <audio id="audioElement" controls></audio>
+        </label>
+      </li>
+    </ol>
+    <hr />
+    <pre id="logs"></pre>
+  </body>
+</html>
+
+
+
+================================================
+FILE: mediarecorder-audio-prompt/script.js
+================================================
+/**
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+button.onclick = async () => {
+  let audioStream;
+  try {
+    // Record speech
+    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const chunks = [];
+    const recorder = new MediaRecorder(audioStream);
+    recorder.ondataavailable = ({ data }) => {
+      chunks.push(data);
+    };
+    recorder.start();
+    await new Promise((r) => setTimeout(r, 5000));
+    recorder.stop();
+    await new Promise((r) => (recorder.onstop = r));
+
+    const blob = new Blob(chunks, { type: recorder.mimeType });
+
+    // Save it for later
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.target = "_blank";
+    a.download = "recording.mp3";
+    a.click();
+
+    await transcribe(blob);
+  } catch (error) {
+    log(error);
+  } finally {
+    logs.append(`<hr>`);
+    audioStream?.getTracks().forEach((track) => track.stop());
+  }
+};
+
+inputFile.oninput = async (event) => {
+  try {
+    const file = event.target.files[0];
+    const blob = new Blob([file]);
+    audioElement.src = URL.createObjectURL(blob);
+    await transcribe(blob);
+  } catch (error) {
+    log(error);
+  } finally {
+    logs.append(`<hr>`);
+  }
+};
+
+async function transcribe(blob) {
+  const arrayBuffer = await blob.arrayBuffer();
+
+  const params = await LanguageModel.params();
+  const session = await LanguageModel.create({
+    expectedInputs: [{ type: "audio" }],
+    temperature: 0.1,
+    topK: params.defaultTopK,
+  });
+
+  const stream = session.promptStreaming([
+    {
+      role: "user",
+      content: [
+        { type: "text", value: "transcribe this audio" },
+        { type: "audio", value: arrayBuffer },
+      ],
+    },
+  ]);
+  for await (const chunk of stream) {
+    logs.append(chunk);
+  }
+}
+
+function log(text) {
+  logs.append(`${text}\r\n`);
+}
+
+
+
+================================================
+FILE: mediarecorder-audio-prompt/style.css
+================================================
+/**
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+body {
+  font-family: helvetica, arial, sans-serif;
+  margin: 2em;
+}
+
+h1 {
+  margin-block-end: 0;
+}
+
+#logs {
+  margin-top: 1em;
+  white-space: pre-line;
+}
+
+button {
+  margin-bottom: 12px;
+}
+
+audio {
+    margin-top: 12px;
+
+  display: block;
+}
+
+@media screen and (min-width: 640px) {
+  body {
+    margin: 2em auto;
+    max-width: calc(640px - 2em);
+  }
+}
+
+

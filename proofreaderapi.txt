@@ -1,0 +1,558 @@
+Directory structure:
+└── proofreader-api-playground/
+    ├── fake.json
+    ├── index.html
+    ├── script.js
+    └── style.css
+
+
+Files Content:
+
+================================================
+FILE: proofreader-api-playground/fake.json
+================================================
+{
+  "correctedInput": "This is a random text with a few classic, common, and typical typos and grammar issues. The Proofreader API hopefully finds them all. Knocking on wood and fingers crossed.",
+  "corrections": [
+    {
+      "startIndex": 5,
+      "endIndex": 8,
+      "correction": "is",
+      "type": "grammar",
+      "explanation": "The singular 'This' requires 'is' instead of 'are'."
+    },
+    {
+      "startIndex": 11,
+      "endIndex": 17,
+      "correction": "random",
+      "type": "spelling",
+      "explanation": "'radnom' is a misspelling of 'random'."
+    },
+    {
+      "startIndex": 40,
+      "endIndex": 43,
+      "correction": "c, c",
+      "type": "punctuation",
+      "explanation": "A comma is needed between 'classic' and 'common' for clarity."
+    },
+    {
+      "startIndex": 54,
+      "endIndex": 61,
+      "correction": "typical",
+      "type": "spelling",
+      "explanation": "'typicla' is a misspelling of 'typical'."
+    },
+    {
+      "startIndex": 62,
+      "endIndex": 67,
+      "correction": "typos",
+      "type": "spelling",
+      "explanation": "'typso' is a misspelling of 'typos'."
+    },
+    {
+      "startIndex": 80,
+      "endIndex": 85,
+      "correction": "issues",
+      "type": "spelling",
+      "explanation": "'issus' is a misspelling of 'issues'."
+    },
+    {
+      "startIndex": 87,
+      "endIndex": 90,
+      "correction": "The",
+      "type": "capitalization",
+      "explanation": "'the' should be capitalized after a period."
+    },
+    {
+      "startIndex": 107,
+      "endIndex": 115,
+      "correction": "hopefully",
+      "type": "spelling",
+      "explanation": "'hopefuly' is a misspelling of 'hopefully'."
+    },
+    {
+      "startIndex": 141,
+      "endIndex": 143,
+      "correction": "on",
+      "type": "preposition",
+      "explanation": "The preposition 'at' should be 'on'."
+    },
+
+    {
+      "startIndex": 151,
+      "endIndex": 154,
+      "correction": "d fingers c",
+      "type": "missing-words",
+      "explanation": "There was the word 'fingers' missing."
+    }
+  ]
+}
+
+
+
+================================================
+FILE: proofreader-api-playground/index.html
+================================================
+<!--
+  Copyright 2025 Google LLC
+  SPDX-License-Identifier: Apache-2.0
+ -->
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<meta name="color-scheme" content="dark light">
+		<meta http-equiv="origin-trial" content="AlTsndqq95JpJiuNYyfn5+1O9qFyQJjL36Fna+RrhgNahpqK1zDCI6IRuYOlP/yu+1XFizuq5XyHKsxnOpdG0wYAAABUeyJvcmlnaW4iOiJodHRwczovL2Nocm9tZS5kZXY6NDQzIiwiZmVhdHVyZSI6IkFJUHJvb2ZyZWFkZXJBUEkiLCJleHBpcnkiOjE3NzkxNDg4MDB9">
+		<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✍️</text></svg>">
+		<title>Proofreader API</title>
+		<link rel="stylesheet" href="style.css">
+		<script>
+			if (!isSecureContext) location.protocol = 'https:';
+		</script>
+		<script src="script.js" type="module"></script>
+	</head>
+	<body>
+		<h1>✍️ Proofreader API</h1>
+		<p class="error" hidden>
+			😕 Your browser doesn't support the Proofreader API. Using static
+			<a href="fake.json">mockup data</a>.
+		</p>
+		<h2>Input text</h2>
+		<p>
+			<label class="legend" for="examples">Legend:</label>
+			<!-- Zero-width space (&#8203;) for invisibly creating the CSS Highlight "other". -->
+			<!-- prettier-ignore -->
+			<span id="examples">
+				Spelling Punctuation Capitalization Preposition Missing&nbsp;words Grammar &#8203;
+			</span>
+		</p>
+		<form>
+			<!-- prettier-ignore -->
+			<div contenteditable="plaintext-only"
+			     spellcheck="false"
+			     tabindex="0"
+			>This are a radnom text with a few classic common, and typicla typso and grammar issus. the Proofreader API hopefuly finds them all. Knocking at wood and crossed.</div>
+
+			<label><input type="checkbox" id="include-correction-types">
+			Include
+			correction types</label>
+			<label hidden><input type="checkbox" id="include-correction-explanations" disabled>
+			Include correction explanations</label>
+
+			<button disabled type="submit">✍️ Proofread</button>
+
+			<span class="activity-indicator"></span>
+		</form>
+		<h2>Corrected text</h2>
+		<output></output>
+		<div popover="auto">
+			<h1></h1>
+			<div>
+				<strong>Correction:</strong>
+				<button type="button" class="correction"></button>
+			</div>
+			<div hidden>
+				<strong>Explanation:</strong>
+				<span class="explanation"></span>
+			</div>
+		</div>
+		<footer>
+			Made by
+			<a href="https://github.com/tomayac/">@tomayac</a>. Source code on
+			<a href="https://github.com/GoogleChromeLabs/web-ai-demos">GitHub</a>.
+		</footer>
+	</body>
+</html>
+
+
+
+================================================
+FILE: proofreader-api-playground/script.js
+================================================
+/**
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+const input = document.querySelector('[contenteditable]');
+const output = document.querySelector('output');
+const form = document.querySelector('form');
+const submit = document.querySelector('[type="submit"]');
+const legend = document.querySelector('span').firstChild;
+const popover = document.querySelector('[popover]');
+const button = popover.querySelector('button');
+const activityIndicator = document.querySelector('.activity-indicator');
+const includeCorrectionTypesCheckbox = document.querySelector(
+  '#include-correction-types'
+);
+const includeCorrectionExplanationsCheckbox = document.querySelector(
+  '#include-correction-explanations'
+);
+const legendContainer = document.querySelector('p:has(.legend)');
+
+(async () => {
+  // Feature detection.
+  const proofreaderAPISupported = 'Proofreader' in self;
+
+  const errorHighlights = {
+    spelling: null,
+    punctuation: null,
+    capitalization: null,
+    preposition: null,
+    'missing-words': null,
+    grammar: null,
+     // Fallback for when `includeCorrectionTypes` is `false`.
+    other: null,
+  };
+  const errorTypes = Object.keys(errorHighlights);
+
+  let corrections;
+  let correctedInput;
+  let currentCorrection;
+
+  let proofreader;
+
+  [
+    includeCorrectionExplanationsCheckbox,
+    includeCorrectionTypesCheckbox,
+  ].forEach((checkbox) => {
+    checkbox.addEventListener('change', () => {
+      legendContainer.style.visibility = includeCorrectionTypesCheckbox.checked
+        ? 'visible'
+        : 'hidden';
+      proofreader = null;
+      submit.click();
+    });
+  });
+
+  // Draw the legends.
+  const preTrimStartLength = legend.textContent.length;
+  const postTrimStartLength = legend.textContent.trimStart().length;
+  let offset = preTrimStartLength - postTrimStartLength;
+  legend.textContent
+    .trimStart()
+    .split(' ')
+    .forEach((word, i) => {
+      if (!errorTypes[i]) {
+        return;
+      }
+      const range = new Range();
+      range.setStart(legend, offset);
+      offset += word.length;
+      range.setEnd(legend, offset);
+      const highlight = new self.Highlight(range);
+      errorHighlights[errorTypes[i]] = highlight;
+      CSS.highlights.set(errorTypes[i], highlight);
+      offset += 1;
+    });
+
+  if ('highlightsFromPoint' in self.HighlightRegistry.prototype) {
+    document.addEventListener('click', (event) => {
+      const mouseX = event.clientX;
+      const mouseY = event.clientY;
+      // ToDo: Make the error clicking logic based on CSS Highlights.
+      console.log(CSS.highlights.highlightsFromPoint(mouseX, mouseY));
+    });
+  }
+
+  document.querySelector('.error').hidden = proofreaderAPISupported;
+
+  form.querySelector('button').disabled = false;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    activityIndicator.textContent = '⏳ Proofreading...';
+    // Use existing proofreader instance or create new instance.
+    if (proofreaderAPISupported) {
+      proofreader =
+        proofreader ||
+        (await self.Proofreader.create({
+          includeCorrectionTypes: includeCorrectionTypesCheckbox.checked,
+          includeCorrectionExplanations:
+            includeCorrectionExplanationsCheckbox.checked,
+          expectedInputLanguagues: ['en'],
+          correctionExplanationLanguage: 'en',
+        }));
+    }
+
+    // Remove previous highlights, only keep the legend highlights.
+    for (const errorType of errorTypes) {
+      const firstRange = errorHighlights[errorType].values().next().value;
+      errorHighlights[errorType].clear();
+      errorHighlights[errorType].add(firstRange);
+    }
+
+    // If there's no usable text, exit.
+    const text = input.textContent.trim();
+    if (!text) {
+      return;
+    }
+
+    if (proofreaderAPISupported) {
+      // Work with `innerText` here.
+      ({ correctedInput, corrections } = await proofreader.proofread(
+        input.innerText
+      ));
+    } else {
+      // Use fake data.
+      ({ correctedInput, corrections } = await (
+        await fetch('fake.json')
+      ).json());
+    }
+    activityIndicator.textContent = '';
+    if (!corrections) {
+      corrections = [];
+    }
+    // Highlight all corrections by type.
+    const textNode = input.firstChild;
+    for (const correction of corrections) {
+      const range = new Range();
+      range.setStart(textNode, correction.startIndex);
+      range.setEnd(textNode, correction.endIndex);
+      correction.type ||= 'other';
+      errorHighlights[correction.type].add(range);
+    }
+
+    if (correctedInput) {
+      output.textContent = correctedInput;
+    }
+  });
+
+  const showCorrectionsAtCaretPosition = () => {
+    if (!corrections || !Array.isArray(corrections)) {
+      return;
+    }
+
+    // Find the caret position index and coordinates to position the popup.
+    let selection = window.getSelection();
+    let range = selection.getRangeAt(0);
+    let preCaretRange = range.cloneRange();
+    preCaretRange.selectNodeContents(input);
+    preCaretRange.setEnd(range.endContainer, range.endOffset);
+    const caretPosition = preCaretRange.toString().length;
+    let rect = preCaretRange.getBoundingClientRect();
+    let { left, width, top, height } = rect;
+    left += width / 2;
+    top += height;
+
+    // Find corrections at caret.
+    currentCorrection =
+      corrections.find(
+        (correction) =>
+          correction.startIndex <= caretPosition &&
+          caretPosition <= correction.endIndex
+      ) || null;
+    if (!currentCorrection) {
+      popover.hidePopover();
+      form
+        .querySelectorAll('button')
+        .forEach((button) => button.removeAttribute('tabindex'));
+      return;
+    }
+
+    // Show the popup.
+    const { type, correction, explanation } = currentCorrection;
+    const heading = type[0].toUpperCase() + type.substring(1).replace(/-/, ' ');
+    popover.querySelector('h1').textContent = heading;
+    const text = popover.querySelector('h1').firstChild;
+    const highlightRange = new Range();
+    highlightRange.setStart(text, 0);
+    highlightRange.setEnd(text, heading.length);
+    errorHighlights[type].add(highlightRange);
+    popover.querySelector('.correction').textContent =
+      correction || '[Remove word]';
+    if (explanation) {
+      popover.querySelector('.explanation').textContent = explanation;
+    } else {
+      popover.querySelector('*:has(.explanation)').style.display = 'none';
+    }
+    popover.style.top = `${Math.round(top)}px`;
+    popover.style.left = `${Math.round(left)}px`;
+    form.querySelectorAll('button').forEach((button) => (button.tabIndex = -1));
+    popover.showPopover();
+  };
+
+  // Make sure we can tab in an out of the popover and focus on the
+  // accept correction button.
+  popover.addEventListener('toggle', (e) => {
+    if (e.oldState === 'closed') {
+      button.addEventListener('keydown', buttonBlur);
+      return;
+    }
+    button.removeEventListener('keydown', buttonBlur);
+  });
+
+  const buttonBlur = (e) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      input.focus();
+    }
+  };
+
+  // Accept the correction.
+  button.addEventListener('click', () => {
+    if (!currentCorrection) {
+      return;
+    }
+    const { startIndex, endIndex, correction } = currentCorrection;
+    input.textContent = `${input.textContent.substring(
+      0,
+      startIndex
+    )}${correction}${input.textContent.substring(endIndex)}`;
+    popover.hidePopover();
+    submit.click();
+  });
+
+  input.addEventListener('keyup', (e) => {
+    // Ignore [Esc], as it dismisses the popup.
+    if (e.key === 'Escape') {
+      return;
+    }
+    showCorrectionsAtCaretPosition();
+  });
+
+  input.addEventListener('pointerup', showCorrectionsAtCaretPosition);
+})();
+
+
+
+================================================
+FILE: proofreader-api-playground/style.css
+================================================
+/**
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+:root {
+  color-scheme: dark light;
+}
+
+html {
+  box-sizing: border-box;
+}
+
+*,
+*:before,
+*:after {
+  box-sizing: inherit;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  max-width: clamp(320px, 90%, 1000px);
+  margin: auto;
+}
+
+body,
+form {
+  display: flex;
+  flex-direction: column;
+}
+
+p:has(.legend) {
+  visibility: hidden;
+}
+
+label.legend {
+  font-weight: bold;
+}
+
+[contenteditable],
+output {
+  display: block;
+  width: 30em;
+  height: 15ex;
+  min-height: fit-content;
+  border: solid 1px CanvasText;
+}
+
+button {
+  display: block;
+  margin-block: 1ex;
+  width: max-content;
+}
+
+.error {
+  background-color: red;
+  color: white;
+  padding: 1rem;
+  width: fit-content;
+}
+
+.error a {
+  color: white;
+}
+
+:popover-open {
+  inset: unset;
+  position: absolute;
+}
+
+:popover-open h1 {
+  margin-block-end: 0.5rem;
+  font-size: 1.1rem;
+}
+
+:popover-open button {
+  display: unset;
+  appearance: none;
+  font-size: inherit;
+  border: none;
+  background-color: transparent;
+}
+
+:popover-open button:hover {
+  outline-color: rgb(153, 200, 255);
+  outline-style: auto;
+  outline-width: 1px;
+}
+
+::highlight(spelling) {
+  text-decoration-color: light-dark(purple, yellow);
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+}
+
+::highlight(punctuation) {
+  text-decoration-color: red;
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+}
+
+::highlight(capitalization) {
+  text-decoration-color: lime;
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+}
+
+::highlight(preposition) {
+  text-decoration-color: orange;
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+}
+
+::highlight(missing-words) {
+  text-decoration-color: deeppink;
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+}
+
+::highlight(grammar) {
+  text-decoration-color: light-dark(blue, lightblue);
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+}
+
+::highlight(other) {
+  text-decoration-color: light-dark(gray, lightgray);
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+}
+
+footer {
+  margin-block: 1rem;
+}
+
+

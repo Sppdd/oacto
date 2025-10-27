@@ -15,7 +15,7 @@ export class ChromeWriter implements INodeType {
     icon: 'file:chrome-writer.svg',
     group: ['transform'],
     version: 1,
-    description: 'Generate text with Chrome built-in Writer API - Local & Private. Note: This API may require user interaction and might not work in automated workflows. Consider using Chrome Prompt AI for reliable n8n integration.',
+    description: 'Generate text with Chrome built-in Writer API - Local & Private. Falls back to Chrome Prompt AI if Writer API is unavailable or requires user interaction. Fully compatible with n8n automation workflows.',
     defaults: {
       name: 'Chrome Writer',
     },
@@ -75,6 +75,30 @@ export class ChromeWriter implements INodeType {
         default: 'medium',
         description: 'Desired output length',
       },
+      {
+        displayName: 'Session Management',
+        name: 'sessionOptions',
+        type: 'collection',
+        placeholder: 'Add Option',
+        default: {},
+        options: [
+          {
+            displayName: 'Session ID',
+            name: 'sessionId',
+            type: 'string',
+            default: '',
+            description: 'Existing session ID to continue conversation. Leave empty for new session.',
+            placeholder: 'Leave empty for new session',
+          },
+          {
+            displayName: 'Force New Session',
+            name: 'forceNewSession',
+            type: 'boolean',
+            default: false,
+            description: 'Force creation of a new session even if session ID is provided',
+          },
+        ],
+      },
     ],
   };
 
@@ -86,6 +110,7 @@ export class ChromeWriter implements INodeType {
     const client = new ChromeAiClient({
       bridgeUrl: credentials.bridgeUrl as string,
       apiKey: credentials.apiKey as string,
+      tokens: credentials.tokens as any,
     });
 
     const isHealthy = await client.healthCheck();
@@ -102,24 +127,36 @@ export class ChromeWriter implements INodeType {
         const tone = this.getNodeParameter('tone', i) as 'formal' | 'neutral' | 'casual';
         const format = this.getNodeParameter('format', i) as 'plain-text' | 'markdown';
         const length = this.getNodeParameter('length', i) as 'short' | 'medium' | 'long';
+        const sessionOptions = this.getNodeParameter('sessionOptions', i, {}) as {
+          sessionId?: string;
+          forceNewSession?: boolean;
+        };
 
-        const result = await client.writer({
+        const response = await client.writer({
           prompt,
           tone,
           format,
           length,
+          sessionId: sessionOptions.sessionId,
+          forceNewSession: sessionOptions.forceNewSession,
         });
 
         returnData.push({
           json: {
             ...items[i].json,
-            generatedText: result,
+            generatedText: response.result,
+            sessionId: response.sessionId,
+            fallbackUsed: response.fallbackUsed || false,
+            originalApi: response.originalApi || null,
             _meta: {
               prompt,
               tone,
               format,
               length,
               timestamp: new Date().toISOString(),
+              sessionId: response.sessionId,
+              fallbackUsed: response.fallbackUsed || false,
+              originalApi: response.originalApi || 'Writer',
             },
           },
           pairedItem: i,

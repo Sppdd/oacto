@@ -1,0 +1,416 @@
+Directory structure:
+└── summarization-api-playground/
+    ├── index.html
+    ├── package.json
+    ├── tsconfig.json
+    ├── vite.config.js
+    └── src/
+        ├── main.ts
+        ├── style.css
+        └── vite-env.d.ts
+
+
+Files Content:
+
+================================================
+FILE: summarization-api-playground/index.html
+================================================
+<!doctype html>
+<!--
+  Copyright 2024 Google LLC
+  SPDX-License-Identifier: Apache-2.0
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+
+    <!-- Summarizer API --->
+    <meta http-equiv="origin-trial" content="Aiqz8ZArzAhQ2U24U9mLLJV8l16YNGsuiDqHJcUD3eCqYDbrWpb8qG3BSMXJ4OxDyS6Zw9HlsS5/ZoD0AFDAUQEAAABWeyJvcmlnaW4iOiJodHRwczovL2Nocm9tZS5kZXY6NDQzIiwiZmVhdHVyZSI6IkFJU3VtbWFyaXphdGlvbkFQSSIsImV4cGlyeSI6MTc1MzE0MjQwMH0=" />
+
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script type="module" src="./src/main.ts"></script>
+    <title>Summarization API Playgroud</title>
+  </head>
+  <body>
+    <header>
+      <h1>Summarization API Playground</h1>
+    </header>
+    <main>
+        <fieldset>
+          <legend>Prompt</legend>
+          <textarea id="input"></textarea>
+          <div>Token Usage: <span id="character-count"></span></div>
+        </fieldset>
+        <fieldset>
+          <legend>Settings</legend>
+          <div>
+            <label for="type">Summary Type:</label>
+            <select id="type">
+              <option value="key-points" selected>Key Points</option>
+              <option value="tldr">TL;DR</option>
+              <option value="teaser">Teaser</option>
+              <option value="headline">Headline</option>
+            </select>
+          </div>
+          <div>
+            <label for="length">Length:</label>
+            <select id="length">
+              <option value="short" selected>Short</option>
+              <option value="medium">Medium</option>
+              <option value="long">Long</option>
+            </select>
+          </div>
+          <div>
+            <label for="format">Format:</label>
+            <select id="format">
+              <option value="markdown" selected>Markdown</option>
+              <option value="plain-text">Plain text</option>
+            </select>
+          </div>
+        </fieldset>
+        <div>
+          <h2>Summary</h2>
+          <pre id="output"></pre>
+        </div>
+    </main>
+    <footer>
+      Be the first to test new AI APIs. Your feedback is invaluable to our development process. Join our <a href=" https://goo.gle/chrome-ai-dev-preview-join">Early Preview Program</a> today.
+    </footer>
+    <div class="dialog" id="summarization-unavailable">
+      <div>Your browser doesn't support the Summarization API. If you're on Chrome, join the <a href=" https://goo.gle/chrome-ai-dev-preview-join">Early Preview Program</a> and enable it.</div>
+    </div>
+    <div class="dialog" id="summarization-unsupported">
+      <div>The Summarization API is available, but your device is unable to run it. Check device requirements in the <a href=" https://goo.gle/chrome-ai-dev-preview-join">Early Preview Program</a> documentation.</div>
+    </div>
+  </body>
+</html>
+
+
+
+================================================
+FILE: summarization-api-playground/package.json
+================================================
+{
+  "name": "summarization-api-playground",
+  "description": "A demo of Chrome's experimental Summarizer API.",
+  "license": "Apache-2.0",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2",
+    "vite": "^5.4.12"
+  },
+  "config": {
+    "thumbnail": "thumbnail.png"
+  },
+  "dependencies": {
+    "@types/dom-chromium-ai": "^0.0.9"
+  }
+}
+
+
+
+================================================
+FILE: summarization-api-playground/tsconfig.json
+================================================
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"]
+}
+
+
+
+================================================
+FILE: summarization-api-playground/vite.config.js
+================================================
+/**
+ * Copyright 2024 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { defineConfig } from 'vite'
+
+export default defineConfig({
+  base: '',
+})
+
+
+
+================================================
+FILE: summarization-api-playground/src/main.ts
+================================================
+/**
+ * Copyright 2024 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import './style.css'
+
+// Declare Summarizer as a global, to avoid the TS compiler complaining about unknown
+// objects in the global scope.
+declare global {
+  interface Window {
+      Summarizer: any;
+  }
+}
+
+const inputTextArea = document.querySelector('#input') as HTMLTextAreaElement;
+const summaryTypeSelect = document.querySelector('#type') as HTMLSelectElement;
+const summaryFormatSelect = document.querySelector('#format') as HTMLSelectElement;
+const summaryLengthSelect = document.querySelector('#length') as HTMLSelectElement;
+const characterCountSpan = document.querySelector('#character-count') as HTMLSpanElement;
+const summarizationUnsupportedDialog = document.querySelector('#summarization-unsupported') as HTMLDivElement;
+const summarizationUnavailableDialog = document.querySelector('#summarization-unavailable') as HTMLDivElement;
+const output = document.querySelector('#output') as HTMLDivElement;
+
+/*
+ * Creates a summarization session. If the model has already been downloaded, this function will
+ * create the session and return it. If the model needs to be downloaded, this function will
+ * wait for the download to finish before resolving the promise.
+ *
+ * If a downloadProgressCallback is provided, the function will add the callback to the session
+ * creation.
+ *
+ * The function expects the model availability to be either `readily` or `after-download`, so the
+ * availability must be checked before calling it. If availability is `no`, the function will throw
+ * an error.
+ */
+const createSummarizationSession = async (
+  type: SummarizerType = 'tldr',
+  format: SummarizerFormat = 'plain-text',
+  length: SummarizerLength = 'medium',
+  downloadProgressListener?: (ev: ProgressEvent) => void): Promise<Summarizer> => {
+
+  let monitor = undefined;
+  if (downloadProgressListener) {
+      monitor = (m: CreateMonitor) => {
+          m.addEventListener('downloadprogress', downloadProgressListener);
+      };
+  }
+
+  if (!(await checkSummarizerSupport())) {
+    throw new Error('AI Summarization is not supported');
+  }
+
+  return window.Summarizer.create({ type, format, length, monitor });
+}
+
+/*
+ * Checks if the device supports the Summarizer API (rather than if the browser supports the API).
+ * This method returns `true` when the device is capable of running the Summarizer API and `false`
+ * when it is not.
+ */
+const checkSummarizerSupport = async (): Promise<boolean> => {
+  let availability = await window.Summarizer.availability();
+  return availability === 'available' || availability === 'downloadable';
+}
+
+/*
+ * Initializes the application.
+ * This function will check for the availability of the Summarization API, and if the device is
+ * able to run it before setting up the listeners to summarize the input added to the textarea.
+ */
+const initializeApplication = async () => {
+  const summarizationApiAvailable = self.Summarizer !== undefined;
+  if (!summarizationApiAvailable) {
+    summarizationUnavailableDialog.style.display = 'block';
+    return;
+  }
+
+  const canSummarize = await checkSummarizerSupport();
+  if (!canSummarize) {
+    summarizationUnsupportedDialog.style.display = 'block';
+    return;
+  }
+
+  let timeout: number | undefined = undefined;
+  function scheduleSummarization() {
+    // Debounces the call to the summarization API. This will run the summarization once the user
+    // hasn't typed anything for at least 1 second.
+    clearTimeout(timeout);
+    timeout = setTimeout(async () => {
+      output.textContent = 'Generating summary...';
+      let session = await createSummarizationSession(
+        summaryTypeSelect.value as SummarizerType,
+        summaryFormatSelect.value as SummarizerFormat,
+        summaryLengthSelect.value as SummarizerLength,
+      );
+      let inputUsage = await session.measureInputUsage(inputTextArea.value);
+      characterCountSpan.textContent = `${inputUsage.toFixed()} of ${session.inputQuota}`;
+      let summary = await session.summarize(inputTextArea.value);
+      session.destroy();
+      output.textContent = summary;
+    }, 1000);
+  }
+
+  summaryTypeSelect.addEventListener('change', scheduleSummarization);
+  summaryFormatSelect.addEventListener('change', scheduleSummarization);
+  summaryLengthSelect.addEventListener('change', scheduleSummarization);
+
+  inputTextArea.addEventListener('input', () => {
+    scheduleSummarization();
+  });
+}
+
+initializeApplication();
+
+
+
+================================================
+FILE: summarization-api-playground/src/style.css
+================================================
+/**
+ * Copyright 2024 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+:root {
+  font-family: "Roboto", sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  box-sizing: border-box;
+}
+
+header, main, footer {
+  width: 100%;
+  max-width: 1000px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+main {
+  flex-grow: 1;
+}
+
+footer {
+  background-color: darkgreen;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 30vh;
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+.dialog {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  padding: 16px;
+  transform: translate(-50%, -50%);
+  background-color: darkred;
+  border: 1px solid red;
+  border-radius: 4px;
+}
+
+pre {
+  text-wrap: auto;
+}
+
+.tokens-exceeded, #character-count-exceed {
+  color: red;
+}
+
+.hidden {
+  display: none;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+
+  footer {
+    background-color: lightgreen;
+  }
+
+  .dialog {
+    background-color: lightcoral;
+  }
+}
+
+
+
+================================================
+FILE: summarization-api-playground/src/vite-env.d.ts
+================================================
+/**
+ * Copyright 2024 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/// <reference types="vite/client" />
+
+

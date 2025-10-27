@@ -15,7 +15,7 @@ export class ChromeRewriter implements INodeType {
     icon: 'file:chrome-rewriter.svg',
     group: ['transform'],
     version: 1,
-    description: 'Rewrite text with Chrome built-in Rewriter API - Local & Private',
+    description: 'Rewrite text with Chrome built-in Rewriter API - Local & Private. Falls back to Chrome Prompt AI if Rewriter API is unavailable. Fully compatible with n8n automation workflows.',
     defaults: {
       name: 'Chrome Rewriter',
     },
@@ -77,6 +77,30 @@ export class ChromeRewriter implements INodeType {
         default: 'same',
         description: 'Length relative to original',
       },
+      {
+        displayName: 'Session Management',
+        name: 'sessionOptions',
+        type: 'collection',
+        placeholder: 'Add Option',
+        default: {},
+        options: [
+          {
+            displayName: 'Session ID',
+            name: 'sessionId',
+            type: 'string',
+            default: '',
+            description: 'Existing session ID to continue conversation. Leave empty for new session.',
+            placeholder: 'Leave empty for new session',
+          },
+          {
+            displayName: 'Force New Session',
+            name: 'forceNewSession',
+            type: 'boolean',
+            default: false,
+            description: 'Force creation of a new session even if session ID is provided',
+          },
+        ],
+      },
     ],
   };
 
@@ -88,6 +112,7 @@ export class ChromeRewriter implements INodeType {
     const client = new ChromeAiClient({
       bridgeUrl: credentials.bridgeUrl as string,
       apiKey: credentials.apiKey as string,
+      tokens: credentials.tokens as any,
     });
 
     const isHealthy = await client.healthCheck();
@@ -104,24 +129,36 @@ export class ChromeRewriter implements INodeType {
         const tone = this.getNodeParameter('tone', i) as string;
         const format = this.getNodeParameter('format', i) as 'plain-text' | 'markdown';
         const length = this.getNodeParameter('length', i) as 'shorter' | 'same' | 'longer';
+        const sessionOptions = this.getNodeParameter('sessionOptions', i, {}) as {
+          sessionId?: string;
+          forceNewSession?: boolean;
+        };
 
-        const result = await client.rewriter({
+        const response = await client.rewriter({
           text,
           tone: tone as any,
           format,
           length,
+          sessionId: sessionOptions.sessionId,
+          forceNewSession: sessionOptions.forceNewSession,
         });
 
         returnData.push({
           json: {
             ...items[i].json,
-            rewrittenText: result,
+            rewrittenText: response.result,
+            sessionId: response.sessionId,
+            fallbackUsed: response.fallbackUsed || false,
+            originalApi: response.originalApi || null,
             _meta: {
               originalText: text,
               tone,
               format,
               length,
               timestamp: new Date().toISOString(),
+              sessionId: response.sessionId,
+              fallbackUsed: response.fallbackUsed || false,
+              originalApi: response.originalApi || 'Rewriter',
             },
           },
           pairedItem: i,

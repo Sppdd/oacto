@@ -64,6 +64,30 @@ export class ChromePromptAi implements INodeType {
         description: 'Controls randomness/creativity. Lower = more focused, Higher = more creative.',
       },
       {
+        displayName: 'Session Management',
+        name: 'sessionOptions',
+        type: 'collection',
+        placeholder: 'Add Option',
+        default: {},
+        options: [
+          {
+            displayName: 'Session ID',
+            name: 'sessionId',
+            type: 'string',
+            default: '',
+            description: 'Existing session ID to continue conversation. Leave empty for new session.',
+            placeholder: 'Leave empty for new session',
+          },
+          {
+            displayName: 'Force New Session',
+            name: 'forceNewSession',
+            type: 'boolean',
+            default: false,
+            description: 'Force creation of a new session even if session ID is provided',
+          },
+        ],
+      },
+      {
         displayName: 'Options',
         name: 'options',
         type: 'collection',
@@ -102,6 +126,7 @@ export class ChromePromptAi implements INodeType {
     const client = new ChromeAiClient({
       bridgeUrl: credentials.bridgeUrl as string,
       apiKey: credentials.apiKey as string,
+      tokens: credentials.tokens as any,
     });
 
     // Check bridge health before processing
@@ -122,29 +147,37 @@ export class ChromePromptAi implements INodeType {
         const systemPrompt = this.getNodeParameter('systemPrompt', i, '') as string;
         const userPrompt = this.getNodeParameter('userPrompt', i) as string;
         const temperature = this.getNodeParameter('temperature', i) as number;
+        const sessionOptions = this.getNodeParameter('sessionOptions', i, {}) as {
+          sessionId?: string;
+          forceNewSession?: boolean;
+        };
         const options = this.getNodeParameter('options', i, {}) as {
           continueOnFail?: boolean;
           batchSize?: number;
         };
 
         // Call Chrome AI via bridge
-        const result = await client.promptAi({
+        const response = await client.promptAi({
           systemPrompt: systemPrompt || undefined,
           userPrompt,
           temperature,
+          sessionId: sessionOptions.sessionId,
+          forceNewSession: sessionOptions.forceNewSession,
         });
 
         // Return result with original input data
         returnData.push({
           json: {
             ...items[i].json,
-            aiResult: result,
+            aiResult: response.result,
+            sessionId: response.sessionId,
             _meta: {
               prompt: userPrompt,
               systemPrompt: systemPrompt || null,
               temperature,
               timestamp: new Date().toISOString(),
               model: 'gemini-nano',
+              sessionId: response.sessionId,
             },
           },
           pairedItem: i,

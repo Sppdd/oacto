@@ -50,43 +50,66 @@ wss.on('connection', (ws) => {
 });
 
 // Helper to send request to web app
-async function callWebApp(action, params, timeout = 30000) {
+async function callWebApp(action, params, timeout = 30000, req = null) {
   if (!webAppWs) {
     throw new Error('Web app not connected. Please open http://localhost:3333 in Chrome');
   }
 
   const id = Date.now() + Math.random();
-  
+
+  // Extract tokens from request headers if available
+  const tokens = req ? {
+    promptAiToken: req.headers['x-prompt-ai-token'] || '',
+    writerToken: req.headers['x-writer-token'] || '',
+    summarizerToken: req.headers['x-summarizer-token'] || '',
+    translatorToken: req.headers['x-translator-token'] || '',
+    rewriterToken: req.headers['x-rewriter-token'] || '',
+    proofreaderToken: req.headers['x-proofreader-token'] || '',
+    languageDetectorToken: req.headers['x-language-detector-token'] || '',
+  } : {};
+
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       pendingRequests.delete(id);
       reject(new Error('Request timeout'));
     }, timeout);
 
-    pendingRequests.set(id, { 
+    pendingRequests.set(id, {
       resolve: (response) => {
         clearTimeout(timer);
         resolve(response);
       }
     });
 
-    webAppWs.send(JSON.stringify({ id, action, params }));
+    webAppWs.send(JSON.stringify({ id, action, params, tokens }));
   });
 }
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
+  // Extract tokens from headers
+  const tokens = {
+    promptAiToken: req.headers['x-prompt-ai-token'] || '',
+    writerToken: req.headers['x-writer-token'] || '',
+    summarizerToken: req.headers['x-summarizer-token'] || '',
+    translatorToken: req.headers['x-translator-token'] || '',
+    rewriterToken: req.headers['x-rewriter-token'] || '',
+    proofreaderToken: req.headers['x-proofreader-token'] || '',
+    languageDetectorToken: req.headers['x-language-detector-token'] || '',
+  };
+
   res.json({
     status: webAppWs ? 'ok' : 'no-webapp',
     message: webAppWs ? 'Chrome AI web app ready' : 'Web app not connected. Open http://localhost:3333 in Chrome',
     timestamp: new Date().toISOString(),
+    tokens: Object.keys(tokens).filter(key => tokens[key]).length + ' tokens configured',
   });
 });
 
 // Chrome Prompt AI endpoint
 app.post('/api/prompt-ai', async (req, res) => {
   try {
-    const { systemPrompt, userPrompt, temperature, outputLanguage } = req.body;
+    const { systemPrompt, userPrompt, temperature, outputLanguage, sessionId, forceNewSession } = req.body;
 
     if (!userPrompt) {
       return res.status(400).json({
@@ -99,13 +122,18 @@ app.post('/api/prompt-ai', async (req, res) => {
       systemPrompt,
       userPrompt,
       temperature: temperature || 0.8,
-      outputLanguage: outputLanguage || 'en'
-    });
+      outputLanguage: outputLanguage || 'en',
+      sessionId,
+      forceNewSession,
+    }, 30000, req);
 
     if (response.success) {
       res.json({
         success: true,
-        result: response.value,
+        result: response.value.result,
+        sessionId: response.value.sessionId,
+        fallbackUsed: response.value.fallbackUsed || false,
+        originalApi: response.value.originalApi || null,
       });
     } else {
       res.status(500).json({
@@ -124,7 +152,7 @@ app.post('/api/prompt-ai', async (req, res) => {
 // Chrome Writer API endpoint
 app.post('/api/writer', async (req, res) => {
   try {
-    const { prompt, tone, format, length } = req.body;
+    const { prompt, tone, format, length, sessionId, forceNewSession } = req.body;
 
     if (!prompt) {
       return res.status(400).json({
@@ -140,12 +168,17 @@ app.post('/api/writer', async (req, res) => {
       tone,
       format,
       length,
-    });
+      sessionId,
+      forceNewSession,
+    }, 30000, req);
 
     if (response.success) {
       res.json({
         success: true,
-        result: response.value,
+        result: response.value.result,
+        sessionId: response.value.sessionId,
+        fallbackUsed: response.value.fallbackUsed || false,
+        originalApi: response.value.originalApi || null,
       });
     } else {
       // Provide more specific error messages
@@ -182,7 +215,7 @@ app.post('/api/writer', async (req, res) => {
 // Chrome Summarizer API endpoint
 app.post('/api/summarizer', async (req, res) => {
   try {
-    const { text, type, format, length } = req.body;
+    const { text, type, format, length, sessionId, forceNewSession } = req.body;
 
     if (!text) {
       return res.status(400).json({
@@ -196,12 +229,17 @@ app.post('/api/summarizer', async (req, res) => {
       type,
       format,
       length,
-    });
+      sessionId,
+      forceNewSession,
+    }, 30000, req);
 
     if (response.success) {
       res.json({
         success: true,
-        result: response.value,
+        result: response.value.result,
+        sessionId: response.value.sessionId,
+        fallbackUsed: response.value.fallbackUsed || false,
+        originalApi: response.value.originalApi || null,
       });
     } else {
       res.status(500).json({
@@ -220,7 +258,7 @@ app.post('/api/summarizer', async (req, res) => {
 // Chrome Translator API endpoint
 app.post('/api/translator', async (req, res) => {
   try {
-    const { text, sourceLanguage, targetLanguage } = req.body;
+    const { text, sourceLanguage, targetLanguage, sessionId, forceNewSession } = req.body;
 
     if (!text || !targetLanguage) {
       return res.status(400).json({
@@ -233,12 +271,17 @@ app.post('/api/translator', async (req, res) => {
       text,
       sourceLanguage,
       targetLanguage,
-    });
+      sessionId,
+      forceNewSession,
+    }, 30000, req);
 
     if (response.success) {
       res.json({
         success: true,
-        result: response.value,
+        result: response.value.result,
+        sessionId: response.value.sessionId,
+        fallbackUsed: response.value.fallbackUsed || false,
+        originalApi: response.value.originalApi || null,
       });
     } else {
       res.status(500).json({
@@ -257,7 +300,7 @@ app.post('/api/translator', async (req, res) => {
 // Chrome Rewriter API endpoint
 app.post('/api/rewriter', async (req, res) => {
   try {
-    const { text, tone, format, length } = req.body;
+    const { text, tone, format, length, sessionId, forceNewSession } = req.body;
 
     if (!text) {
       return res.status(400).json({
@@ -271,12 +314,17 @@ app.post('/api/rewriter', async (req, res) => {
       tone,
       format,
       length,
-    });
+      sessionId,
+      forceNewSession,
+    }, 30000, req);
 
     if (response.success) {
       res.json({
         success: true,
-        result: response.value,
+        result: response.value.result,
+        sessionId: response.value.sessionId,
+        fallbackUsed: response.value.fallbackUsed || false,
+        originalApi: response.value.originalApi || null,
       });
     } else {
       res.status(500).json({
@@ -295,7 +343,7 @@ app.post('/api/rewriter', async (req, res) => {
 // Chrome Proofreader API endpoint
 app.post('/api/proofreader', async (req, res) => {
   try {
-    const { text } = req.body;
+    const { text, sessionId, forceNewSession } = req.body;
 
     if (!text) {
       return res.status(400).json({
@@ -304,12 +352,15 @@ app.post('/api/proofreader', async (req, res) => {
       });
     }
 
-    const response = await callWebApp('proofreader', { text });
+    const response = await callWebApp('proofreader', { text, sessionId, forceNewSession }, 30000, req);
 
     if (response.success) {
       res.json({
         success: true,
-        result: response.value,
+        result: response.value.result,
+        sessionId: response.value.sessionId,
+        fallbackUsed: response.value.fallbackUsed || false,
+        originalApi: response.value.originalApi || null,
       });
     } else {
       res.status(500).json({
@@ -328,7 +379,7 @@ app.post('/api/proofreader', async (req, res) => {
 // Chrome Language Detector API endpoint
 app.post('/api/language-detector', async (req, res) => {
   try {
-    const { text } = req.body;
+    const { text, sessionId, forceNewSession } = req.body;
 
     if (!text) {
       return res.status(400).json({
@@ -337,12 +388,15 @@ app.post('/api/language-detector', async (req, res) => {
       });
     }
 
-    const response = await callWebApp('languageDetector', { text });
+    const response = await callWebApp('languageDetector', { text, sessionId, forceNewSession }, 30000, req);
 
     if (response.success) {
       res.json({
         success: true,
-        result: response.value,
+        result: response.value.result,
+        sessionId: response.value.sessionId,
+        fallbackUsed: response.value.fallbackUsed || false,
+        originalApi: response.value.originalApi || null,
       });
     } else {
       res.status(500).json({

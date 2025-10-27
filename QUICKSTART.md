@@ -19,125 +19,118 @@ Get up and running in 10 minutes!
 
 **Verify**: Open console (F12), type `LanguageModel` → should see constructor function
 
-## Step 2: Start Bridge Server (1 min)
+## Step 2: Start Platform (1 min)
 
 ```bash
-cd packages/chrome-extension/server
-npm install
-npm start
+./start-platform.sh
 ```
 
-Should see: `📡 HTTP Server: http://localhost:3333`
+This starts:
+- ✅ Bridge Server (http://localhost:3333)
+- ✅ n8n (http://localhost:5678)
 
-**Keep this running!**
+**Keep the Bridge Server tab open in Chrome!**
 
-## Step 3: Load Extension (1 min)
-
-```
-1. chrome://extensions/
-2. Developer mode ON
-3. Load unpacked
-4. Select: packages/chrome-extension/
-```
-
-Click extension icon → Should show "✅ Connected"
-
-## Step 4: Setup n8n (2 mins)
-
-```bash
-# If n8n not installed:
-npm install -g n8n
-
-# Start n8n
-n8n start
-```
-
-Access: `http://localhost:5678`
-
-## Step 5: Install Nodes (1 min)
-
-**Option A: Use installation script (easiest)**
-```bash
-./install.sh
-```
-
-**Option B: Manual installation**
-```bash
-# Build the n8n package
-cd packages/n8n-nodes-chrome-ai
-npm install
-npm run build
-
-# Link the package globally
-npm link
-
-# Create n8n custom directory (required!)
-mkdir -p ~/.n8n/custom
-
-# Link in n8n custom directory
-cd ~/.n8n/custom
-npm link n8n-nodes-chrome-ai
-
-# Restart n8n
-pkill n8n
-n8n start
-```
-
-**If npm link fails:**
-```bash
-# Check if package was built
-cd packages/n8n-nodes-chrome-ai
-ls dist/  # Should show .js files
-
-# If dist/ is empty, rebuild
-npm run build
-
-# Try linking again
-npm link
-```
-
-## Step 6: Configure Credentials (1 min)
+## Step 3: Configure n8n (2 mins)
 
 ```
-1. n8n → Settings → Credentials
-2. Add "Chrome AI API"
-3. Bridge URL: http://localhost:3333
-4. Save + Test
+1. Open: http://localhost:5678
+2. Settings → Credentials
+3. Add "Chrome AI API" credential
+4. Bridge URL: http://localhost:3333
+5. Add your origin trial tokens (optional)
+6. Save
 ```
 
-Should show: ✅ Connection successful
-
-## Step 7: Test Workflow (1 min)
+## Step 4: Create Your First Workflow (2 mins)
 
 ```
-1. New workflow
-2. Add: Manual Trigger
-3. Add: Chrome Prompt AI
-4. Configure:
-   - Credentials: Chrome AI Bridge
-   - Prompt: "Write a haiku"
-5. Execute!
+1. In n8n: New workflow
+2. Add "Chrome Prompt AI" node
+3. Configure:
+   - System Prompt: "You are a helpful assistant"
+   - User Prompt: "Write a haiku about automation"
+   - Temperature: 0.8
+4. Save & Execute
+
+Should see AI response in n8n!
 ```
 
-You should see an AI-generated haiku! 🎉
+**All Chrome AI nodes now work reliably** with automatic fallbacks!
+
+## Advanced: Session Management
+
+Use session IDs to continue conversations across workflow runs:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ Session Management                                      │
+├─────────────────────────────────────────────────────────┤
+│ • Session ID: [Leave empty for new session]           │
+│ • Force New Session: ☐ [Create new session]           │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Example**: Chain nodes with same session for context continuity.
 
 ## Troubleshooting
 
-**"Bridge not responding"**
-- Start bridge server: `npm start` in server/
-
 **"AI not available"**
-- Join Chrome AI Early Preview Program: https://goo.gle/chrome-ai-dev-preview-join
-- Check: `chrome://components/`
-- Model should be downloaded
+- Enable Chrome flags: `chrome://flags`
+- Download model: `chrome://components/`
+- Restart Chrome
 
-**Nodes don't appear**
-- Restart n8n: `pkill n8n && n8n start`
+**"Can't connect"**
+- Ensure Bridge Server tab is open: `http://localhost:3333`
+- Check server logs: `logs/webapp.log`
+- Verify n8n credentials have correct URL
 
-## What's Next?
+**"Node fails"**
+- Check webapp activity log for errors
+- Verify Chrome AI status shows "Ready"
+- Try different node (all have fallbacks now)
 
-- Import example workflows from `examples/`
-- Read node documentation: `docs/NODE-REFERENCE.md`
+## What's New
+
+- ✅ **Session Management** - Continue conversations
+- ✅ **Fallback Support** - All nodes work reliably
+- ✅ **Concurrent Sessions** - Multiple operations simultaneously
+- ✅ **Enhanced Logging** - Better debugging information
+- ✅ **Simplified Setup** - One script starts everything
+
+**Ready to automate! 🚀**
+
+## Success Indicators
+
+✅ Bridge server running on 3333
+✅ n8n running on 5678
+✅ Chrome AI shows "Ready" in webapp
+✅ All Chrome AI nodes available in n8n
+✅ Workflows execute with AI responses
+
+## Advanced Features
+
+### Session Management
+- Continue conversations across workflow runs
+- Chain multiple AI nodes with context
+- Automatic session cleanup
+
+### Fallback Support
+- All nodes work even if Chrome APIs unavailable
+- Automatic fallback to Prompt AI
+- Consistent interface regardless of underlying API
+
+### Concurrent Operations
+- Multiple AI operations run simultaneously
+- Efficient session reuse
+- No blocking between operations
+
+**You now have a fully functional AI automation platform! 🎉**
+
+## Next Steps
+
+- Import example workflows
+- Read the complete documentation: `docs/HOW-IT-WORKS.md`
 - Build your first automation!
 
 ---

@@ -15,7 +15,7 @@ export class ChromeLanguageDetector implements INodeType {
     icon: 'file:chrome-language-detector.svg',
     group: ['transform'],
     version: 1,
-    description: 'Detect language with Chrome built-in Language Detector API - Local & Private',
+    description: 'Detect language with Chrome built-in Language Detector API - Local & Private. Falls back to Chrome Prompt AI if Language Detector API is unavailable. Fully compatible with n8n automation workflows.',
     defaults: {
       name: 'Chrome Language Detector',
     },
@@ -40,6 +40,30 @@ export class ChromeLanguageDetector implements INodeType {
         description: 'Text to detect language from. Can reference {{$json.field}}',
         placeholder: 'Text in any language or {{$json.content}}',
       },
+      {
+        displayName: 'Session Management',
+        name: 'sessionOptions',
+        type: 'collection',
+        placeholder: 'Add Option',
+        default: {},
+        options: [
+          {
+            displayName: 'Session ID',
+            name: 'sessionId',
+            type: 'string',
+            default: '',
+            description: 'Existing session ID to continue conversation. Leave empty for new session.',
+            placeholder: 'Leave empty for new session',
+          },
+          {
+            displayName: 'Force New Session',
+            name: 'forceNewSession',
+            type: 'boolean',
+            default: false,
+            description: 'Force creation of a new session even if session ID is provided',
+          },
+        ],
+      },
     ],
   };
 
@@ -51,6 +75,7 @@ export class ChromeLanguageDetector implements INodeType {
     const client = new ChromeAiClient({
       bridgeUrl: credentials.bridgeUrl as string,
       apiKey: credentials.apiKey as string,
+      tokens: credentials.tokens as any,
     });
 
     const isHealthy = await client.healthCheck();
@@ -64,16 +89,30 @@ export class ChromeLanguageDetector implements INodeType {
     for (let i = 0; i < items.length; i++) {
       try {
         const text = this.getNodeParameter('text', i) as string;
+        const sessionOptions = this.getNodeParameter('sessionOptions', i, {}) as {
+          sessionId?: string;
+          forceNewSession?: boolean;
+        };
 
-        const detectedLanguage = await client.languageDetector({ text });
+        const response = await client.languageDetector({
+          text,
+          sessionId: sessionOptions.sessionId,
+          forceNewSession: sessionOptions.forceNewSession,
+        });
 
         returnData.push({
           json: {
             ...items[i].json,
-            language: detectedLanguage,
+            language: response.result,
+            sessionId: response.sessionId,
+            fallbackUsed: response.fallbackUsed || false,
+            originalApi: response.originalApi || null,
             _meta: {
               text: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
               timestamp: new Date().toISOString(),
+              sessionId: response.sessionId,
+              fallbackUsed: response.fallbackUsed || false,
+              originalApi: response.originalApi || 'LanguageDetector',
             },
           },
           pairedItem: i,

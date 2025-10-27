@@ -1,0 +1,272 @@
+Directory structure:
+└── writer-rewriter-api-playground/
+    ├── index.html
+    ├── package.json
+    ├── script.js
+    └── style.css
+
+
+Files Content:
+
+================================================
+FILE: writer-rewriter-api-playground/index.html
+================================================
+[Binary file]
+
+
+================================================
+FILE: writer-rewriter-api-playground/package.json
+================================================
+{
+  "name": "writer-rewriter-api-playground",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "npx http-server -p 8080"
+  },
+  "author": "Thomas Steiner (tomac@google.com)",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "https-server": "^0.1.2"
+  }
+}
+
+
+
+================================================
+FILE: writer-rewriter-api-playground/script.js
+================================================
+/**
+ * Copyright 2024 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import DOMPurify from 'https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.es.mjs';
+// import { marked } from 'https://cdn.jsdelivr.net/npm/marked@13.0.3/lib/marked.esm.js';
+
+(async () => {
+  const showNotSupportedMessage = () => {
+    document.querySelector('.not-supported-message').hidden = false;
+  };
+
+  if (!('Writer' in self && 'Rewriter' in self)) { // Test for Stable
+    return showNotSupportedMessage();
+  }
+
+  const writeForm = document.querySelector('.write-form');
+  const rewriteForm = document.querySelector('.rewrite-form');
+  const contextInput = document.querySelector('input');
+  const copyButton = document.querySelector('.copy-button');
+  const output = document.querySelector('output');
+  const textarea = document.querySelector('textarea');
+  const formatSelect = document.querySelector('.format');
+  const toneSelect = document.querySelector('.tone');
+  const lengthSelect = document.querySelector('.length');
+  const rewriteFormatSelect = document.querySelector('.rewrite-format');
+  const rewriteToneSelect = document.querySelector('.rewrite-tone');
+  const rewriteLengthSelect = document.querySelector('.rewrite-length');
+
+  writeForm.hidden = false;
+
+  let writer;
+  let rewriter;
+
+  textarea.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      writeForm.dispatchEvent(new Event('submit'));
+    }
+  });
+
+  [contextInput, textarea].forEach((input) =>
+    input.addEventListener('focus', () => {
+      input.select();
+    })
+  );
+
+  const write = async () => {
+    output.style.display = 'block';
+    rewriteForm.hidden = true;
+    copyButton.hidden = true;
+    output.textContent = 'Writing…';
+    const prompt = textarea.value.trim();
+    if (!prompt) {
+      return;
+    }
+    const stream = writer.writeStreaming(prompt);
+    output.textContent = '';
+    let fullResponse = '';
+    for await (const chunk of stream) {
+      // In Chrome stable, the writer always returns the entire text, so the full response is
+      // the same as the chunk. In Canary, only the newly generated content is returned, so
+      // the new chunk is joined with the existing full response.
+      fullResponse = 'Writer' in self ? fullResponse + chunk : chunk;
+      output.innerHTML = DOMPurify.sanitize(
+        fullResponse /*marked.parse(fullResponse)*/
+      );
+    }
+    copyButton.hidden = false;
+    rewriteForm.hidden = false;
+  };
+
+  const createWriter = async () => {
+    const options = {
+      tone: toneSelect.value,
+      length: lengthSelect.value,
+      format: formatSelect.value,
+      sharedContext: context.value.trim(),
+    };
+
+    writer = await Writer.create(options);
+    console.log(writer);
+  };
+
+  const createRewriter = async () => {
+    const options = {
+      tone: rewriteToneSelect.value,
+      length: rewriteLengthSelect.value,
+      format: rewriteFormatSelect.value,
+      sharedContext: context.value.trim(),
+    };
+
+    rewriter = await Rewriter.create(options);
+    console.log(rewriter);
+  };
+
+  writeForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await createWriter();
+    await write();
+  });
+
+  const rewrite = async () => {
+    rewriteForm.hidden = true;
+    copyButton.hidden = true;
+    const prompt = output.innerHTML.trim();
+    if (!prompt) {
+      return;
+    }
+    output.textContent = 'Rewriting…';
+    const stream = await rewriter.rewriteStreaming(prompt);
+    output.textContent = '';
+    let fullResponse = '';
+    for await (const chunk of stream) {
+      // In Chrome stable, the rewriter always returns the entire text, so the full response is
+      // the same as the chunk. In Canary, only the newly generated content is returned, so
+      // the new chunk is joined with the existing full response.
+      fullResponse = 'Rewriter' in self ? fullResponse + chunk : chunk;
+      output.innerHTML = DOMPurify.sanitize(
+        fullResponse /*marked.parse(fullResponse)*/
+      );
+    }
+    rewriteForm.hidden = false;
+    copyButton.hidden = false;
+    [rewriteToneSelect, rewriteLengthSelect, rewriteFormatSelect].forEach(
+      (select) => (select.value = 'as-is')
+    );
+  };
+
+  rewriteForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await createRewriter();
+    await rewrite();
+  });
+
+  copyButton.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(output.innerText);
+  });
+
+  // Remove once multiple rewrite options are supported.
+  const whatTone = document.querySelector('[name=what][value=tone]');
+  const whatLength = document.querySelector('[name=what][value=length]');
+
+  [whatTone, whatLength].forEach((what) => {
+    what.addEventListener('change', () => {
+      rewriteToneSelect.labels[0].hidden = !whatTone.checked;
+      rewriteLengthSelect.labels[0].hidden = !whatLength.checked;
+      rewriteFormatSelect.labels[0].hidden = true;
+    });
+  });
+  rewriteToneSelect.labels[0].hidden = !whatTone.checked;
+  rewriteLengthSelect.labels[0].hidden = !whatLength.checked;
+})();
+
+
+
+================================================
+FILE: writer-rewriter-api-playground/style.css
+================================================
+/**
+ * Copyright 2024 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+:root {
+  color-scheme: dark light;
+}
+
+html {
+  box-sizing: border-box;
+}
+
+*,
+*:before,
+*:after {
+  box-sizing: inherit;
+}
+
+body {
+  margin: 1rem;
+  font-family: system-ui, sans-serif;
+  max-width: clamp(320px, 90%, 1000px);
+  margin: auto;
+}
+
+output,
+form {
+  margin-block: 1rem;
+}
+
+label {
+  font-weight: bold;
+}
+
+output {
+  white-space: pre;
+  text-wrap: wrap;
+  padding-block-end: 3rem;
+  outline: solid 1px CanvasText;
+  outline-offset: 0.25rem;
+  margin-inline: 0.5rem;
+}
+
+.copy-button {
+  position: relative;
+  top: -3rem;
+  left: 0.5rem;
+}
+
+.rewrite-form {
+  position: relative;
+  top: -3rem;
+}
+
+button {
+  width: 10rem;
+}
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.not-supported-message {
+  border: red solid 2px;
+  padding: 0.25rem;
+}
+
+footer {
+  margin-block: 1rem;
+}
+
+

@@ -66,7 +66,6 @@ n8n execution → Node execute() method
 - CORS enabled for n8n communication
 
 **Endpoints**:
-- `GET /api/health` - Health check
 - `POST /api/prompt-ai` - Prompt API
 - `POST /api/writer` - Writer API
 - `POST /api/summarizer` - Summarizer API
