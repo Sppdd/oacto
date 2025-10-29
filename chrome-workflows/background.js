@@ -27,7 +27,7 @@ async function updateContextMenu() {
         try {
             chrome.contextMenus.create({
                 id: "n8n-trigger-parent",
-                title: "Trigger n8n Workflow",
+                title: "Trigger Chrome Workflows",
                 contexts: ["page", "selection", "link", "image"] // Where the menu should appear
             });
 

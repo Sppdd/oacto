@@ -1,3 +1,11 @@
+
+<p align="center">
+  <img src="chrome-workflows/icons/icon_128.png" alt="Chrome Workflows Extension Icon" width="96" />
+  <br />
+  <sub><b>Chrome Workflows Extension</b> <code>v0.5.0</code></sub>
+</p>
+
+
 # Chrome AI × n8n Integration
 
 Local, private AI automation with Chrome's built-in Gemini Nano and n8n workflows.
@@ -83,6 +91,25 @@ Browser extension to trigger n8n workflows from any webpage via right-click.
    - Add "Chrome Prompt AI" node
    - Configure prompt and parameters
    - Run the workflow!
+
+## Scripts to faster setup. 
+
+### Start Everything
+```bash
+./start-platform.sh
+```
+Starts bridge server and n8n.
+
+### Stop Everything
+```bash
+./stop-platform.sh
+```
+Stops all services.
+
+
+
+
+
 
 ## How It Works
 
