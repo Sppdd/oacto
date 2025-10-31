@@ -1,6 +1,6 @@
 
 <p align="center">
-  <img src="../assets/icon128.png" alt="Chrome Workflows Extension Icon" width="96" />
+  <img src="./assets/icon128.png" alt="Chrome Workflows Extension Icon" width="96" />
   <br />
   <sub><b>Chrome Workflows Extension</b> <code>v0.5.0</code></sub>
 </p>
