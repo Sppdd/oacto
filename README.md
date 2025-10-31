@@ -94,11 +94,16 @@ Browser extension to trigger n8n workflows from any webpage via right-click.
 
 ## Scripts to faster setup. 
 
+### Install Everything
+```bash
+./install.sh
+```
+
 ### Start Everything
 ```bash
 ./start-platform.sh
 ```
-Starts bridge server and n8n.
+Starts the bridge server and n8n.
 
 ### Stop Everything
 ```bash
