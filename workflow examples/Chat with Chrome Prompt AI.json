@@ -1,0 +1,94 @@
+{
+  "name": "Chat with Chrome Prompt AI",
+  "nodes": [
+    {
+      "parameters": {
+        "systemPrompt": "you are my browser company, help me to navigate google search with quries that actually find the things that i'm actually looking for by formatting search queries for things that i'm going to ask you. \n \n\ndo explain, you should just provide the formats to use, like this example to find a pdf files. \n\n- [search query here]\n- [search query here]\n\nprovide only the search Queries. ",
+        "userPrompt": "={{ $json.chatInput }}",
+        "options": {}
+      },
+      "type": "CUSTOM.chromePromptAi",
+      "typeVersion": 1,
+      "position": [
+        96,
+        -64
+      ],
+      "id": "a992c3c6-dc65-40ba-b171-40d1bad84792",
+      "name": "Chrome Prompt AI",
+      "credentials": {
+        "chromeAiApi": {
+          "id": "rdcaz3nYZTnsgXD4",
+          "name": "Chrome AI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "public": true,
+        "options": {
+          "responseMode": "responseNodes"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -112,
+        -64
+      ],
+      "id": "441dcba8-b710-47ad-a0fa-74e4c22d95cd",
+      "name": "When chat message received",
+      "webhookId": "0021abed-9eee-4df5-b302-f96e988146e0"
+    },
+    {
+      "parameters": {
+        "message": "={{ $json.aiResult }}",
+        "waitUserReply": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chat",
+      "typeVersion": 1,
+      "position": [
+        304,
+        -64
+      ],
+      "id": "39c5e64d-a45f-486a-9480-7c95b19d8846",
+      "name": "Respond to Chat"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Chrome Prompt AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chrome Prompt AI": {
+      "main": [
+        [
+          {
+            "node": "Respond to Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1866bcef-1560-4cc0-81a6-9a99e7c79f6c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "eafcef54a01b6d5227ce1eaceedff119de08ccd5236cb9aa64b04b0dd2e11a0c"
+  },
+  "id": "jwf0pJZGi54KJhLi",
+  "tags": []
+}

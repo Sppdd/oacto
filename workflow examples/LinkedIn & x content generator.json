@@ -1,0 +1,366 @@
+{
+  "name": "LinkedIn & x content generator",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "### **create linkedin & X post on the go.**\nselect, write your prompt, run and action it's live on linkedin.",
+        "height": 96,
+        "width": 310,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        416,
+        288
+      ],
+      "typeVersion": 1,
+      "id": "863bfdd0-a493-4d58-a7e1-9806c30b7fcb",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "REDACTED_WEBHOOK_PATH",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        416,
+        448
+      ],
+      "id": "c681e398-8d15-4814-b2f3-3d4c03c4bc13",
+      "name": "Webhook",
+      "webhookId": "REDACTED_WEBHOOK_ID"
+    },
+    {
+      "parameters": {
+        "person": "REDACTED_PERSON_ID",
+        "text": "={{ $json.aiResult }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        1152,
+        256
+      ],
+      "id": "e7d3ccec-b3b5-433d-aae6-2e43415837e7",
+      "name": "Create a post",
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "REDACTED_CREDENTIAL_ID",
+          "name": "REDACTED_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "systemPrompt": "convert the user prompt to be less than 140 characters and no formatting added to it, plain text. \n\ndon't use any symbols and again no more than 140 characters maximum. \n \nwith clear insightful message.",
+        "userPrompt": "={{ $json.body.pageTitle }}{{ $json.body.selectionText }}{{ $json.body.prompt }}",
+        "options": {}
+      },
+      "type": "CUSTOM.chromePromptAi",
+      "typeVersion": 1,
+      "position": [
+        864,
+        528
+      ],
+      "id": "1d3e6adb-4e46-4bbd-9184-acbaebfce5a5",
+      "name": "Chrome Prompt AI2",
+      "credentials": {
+        "chromeAiApi": {
+          "id": "REDACTED_CREDENTIAL_ID",
+          "name": "REDACTED_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REDACTED_DOCUMENT_ID",
+          "mode": "list",
+          "cachedResultName": "linkedin-post",
+          "cachedResultUrl": "REDACTED_URL"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "REDACTED_URL"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "orginal-content": "={{ $json.body.pageTitle }}{{ $json.body.selectionText }}",
+            "post-content": "={{ $json.aiResult }}",
+            "posted time": "={{ $json._meta.timestamp }}",
+            "source url": "={{ $('Edit Fields').item.json.body.url }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "orginal-content",
+              "displayName": "orginal-content",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "post-content",
+              "displayName": "post-content",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "posted time",
+              "displayName": "posted time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source url",
+              "displayName": "source url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1152,
+        432
+      ],
+      "id": "e77dcaf4-0eb6-4b37-a0cb-390dc8bd3470",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REDACTED_CREDENTIAL_ID",
+          "name": "REDACTED_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1424,
+        592
+      ],
+      "id": "58f3ec50-7210-46c8-acd8-8319e6509304",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "systemPrompt": "summarize and convert the user inputs with clear friendly insightful post using bullet points. \n\nDon't add symbols, It must be plain text to fit the social media post and should not exceed 300 characters.  \n\nAnd it most be in ARABIC Language, for words that you don't know translation for use the english word for it. ",
+        "userPrompt": "={{ $json.body.selectionText }}{{ $json.body.pageTitle }}{{ $json.body.prompt }}",
+        "options": {}
+      },
+      "type": "CUSTOM.chromePromptAi",
+      "typeVersion": 1,
+      "position": [
+        864,
+        368
+      ],
+      "id": "ab91ce58-60f7-49e4-a4ca-d4ec55943794",
+      "name": "Chrome Prompt AI",
+      "credentials": {
+        "chromeAiApi": {
+          "id": "REDACTED_CREDENTIAL_ID",
+          "name": "REDACTED_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.aiResult }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.twitter",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        592
+      ],
+      "id": "a26f73c2-270c-4674-83df-7baf4738d023",
+      "name": "Create Tweet",
+      "credentials": {
+        "twitterOAuth2Api": {
+          "id": "REDACTED_CREDENTIAL_ID",
+          "name": "REDACTED_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bc08086b-0e64-440d-b06c-520ae7cd26ef",
+              "name": "body.selectionText",
+              "value": "={{ $json.body.selectionText }}",
+              "type": "string"
+            },
+            {
+              "id": "98f13ffb-9efd-44a5-85d9-ecdd4ee3ac55",
+              "name": "body.pageTitle",
+              "value": "={{ $json.body.pageTitle }}",
+              "type": "string"
+            },
+            {
+              "id": "832ace82-0aba-40bd-9e6c-4783530a28b0",
+              "name": "body.url",
+              "value": "={{ $json.body.url }}",
+              "type": "string"
+            },
+            {
+              "id": "85653b7f-6195-4c12-ab9b-9757cdbe66f0",
+              "name": "body.prompt",
+              "value": "={{ $json.body.prompt }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        624,
+        448
+      ],
+      "id": "db1f7a5b-bd91-415f-b9f6-7d160de3e42e",
+      "name": "Edit Fields"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a post": {
+      "main": [
+        []
+      ]
+    },
+    "Chrome Prompt AI2": {
+      "main": [
+        [
+          {
+            "node": "Create Tweet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chrome Prompt AI": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create a post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Tweet": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        []
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Chrome Prompt AI2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Chrome Prompt AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "REDACTED_TIMEZONE",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "REDACTED_ERROR_WORKFLOW_ID"
+  },
+  "versionId": "REDACTED_VERSION_ID",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "REDACTED_INSTANCE_ID"
+  },
+  "id": "REDACTED_WORKFLOW_ID",
+  "tags": [
+    {
+      "createdAt": "2025-10-19T14:59:20.873Z",
+      "updatedAt": "2025-10-19T14:59:20.873Z",
+      "id": "raB3a0gaPVFjAXpQ",
+      "name": "shortcut-workflow"
+    }
+  ]
+}

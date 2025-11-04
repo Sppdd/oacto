@@ -1,0 +1,105 @@
+{
+  "name": "cold email reachout",
+  "nodes": [
+    {
+      "parameters": {
+        "sendTo": "={{ $json.body.selectionText }}",
+        "subject": "={{ $json.body['title of the email'] }}",
+        "emailType": "text",
+        "message": "={{ $json.aiResult }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "9b216722-91c3-44c5-b143-156eed17650c",
+      "name": "Send news",
+      "type": "n8n-nodes-base.gmail",
+      "position": [
+        1728,
+        432
+      ],
+      "typeVersion": 2.1,
+      "webhookId": "REDACTED_WEBHOOK_ID",
+      "notesInFlow": false,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REDACTED_CREDENTIAL_ID",
+          "name": "REDACTED_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "REDACTED_WEBHOOK_PATH",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        1296,
+        432
+      ],
+      "id": "5b15d23d-da10-42fb-bbd6-9cbc966436ae",
+      "name": "Webhook",
+      "webhookId": "REDACTED_WEBHOOK_ID"
+    },
+    {
+      "parameters": {
+        "systemPrompt": "write a short specific, using the context that the use will share with you to write a cold email.\n\nbe specific, my name is [REDACTED_NAME] and i'm writing the title of the email so you only write the email message be friendly and cute. \n\nno symbols or emojis inside the emails.  ",
+        "userPrompt": "={{ $json.body.Prompt }}{{ $json.body['additional context'] }}",
+        "options": {}
+      },
+      "type": "CUSTOM.chromePromptAi",
+      "typeVersion": 1,
+      "position": [
+        1504,
+        432
+      ],
+      "id": "fdf2a1bb-9498-4984-aae0-1540bf3c05a7",
+      "name": "Chrome Prompt AI",
+      "credentials": {
+        "chromeAiApi": {
+          "id": "REDACTED_CREDENTIAL_ID",
+          "name": "REDACTED_CREDENTIAL_NAME"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Chrome Prompt AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chrome Prompt AI": {
+      "main": [
+        [
+          {
+            "node": "Send news",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "REDACTED_VERSION_ID",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "REDACTED_INSTANCE_ID"
+  },
+  "id": "REDACTED_WORKFLOW_ID",
+  "tags": []
+}

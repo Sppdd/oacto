@@ -1,0 +1,449 @@
+{
+  "name": "latest company news with summariser api",
+  "nodes": [
+    {
+      "parameters": {
+        "sendTo": "={{ \"REDACTED_EMAIL\" }}",
+        "subject": "=Latest news {{\"$json.date\"}}",
+        "emailType": "text",
+        "message": "={{ $json.title }}{{ $json.summary }}",
+        "options": {}
+      },
+      "id": "3e437db2-8973-4fa8-a153-65d073230aed",
+      "name": "Send news",
+      "type": "n8n-nodes-base.gmail",
+      "position": [
+        2576,
+        400
+      ],
+      "typeVersion": 2.1,
+      "webhookId": "REDACTED_WEBHOOK_ID",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REDACTED_CREDENTIAL_ID",
+          "name": "REDACTED_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "rss",
+        "options": {}
+      },
+      "id": "dc8606d5-21ee-40ad-8458-494c309fdbc6",
+      "name": "Split Out",
+      "type": "n8n-nodes-base.splitOut",
+      "position": [
+        1408,
+        400
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "id": "d12a7036-4166-443f-819d-caf6984ea075",
+      "name": "Get Articles Daily",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [
+        944,
+        400
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.rss }}",
+        "options": {
+          "ignoreSSL": false
+        }
+      },
+      "id": "fb13495d-4c40-4638-b45f-7dcaaae63e92",
+      "name": "Read RSS News Feeds",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "position": [
+        1632,
+        400
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "content": "### Edit this:",
+        "height": 240,
+        "width": 220,
+        "color": 3
+      },
+      "id": "ac6b5daf-2562-4308-a01e-3c77285bb419",
+      "name": "Sticky Note4",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1136,
+        352
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e9f27ceb-c5f2-4997-8cb1-67576a7bb337",
+              "name": "title",
+              "type": "string",
+              "value": "={{ $json.title }}"
+            },
+            {
+              "id": "4c4f9417-40f2-4fb0-9976-d09f5984680f",
+              "name": "content",
+              "type": "string",
+              "value": "={{ $json['content:encodedSnippet'] ?? $json.contentSnippet}}"
+            },
+            {
+              "id": "e1986bac-054e-4240-ba50-536dbcd27337",
+              "name": "date",
+              "type": "string",
+              "value": "={{ $json.isoDate}}"
+            },
+            {
+              "id": "9566e23c-ac30-4d66-abbd-889f322688b7",
+              "name": "link",
+              "type": "string",
+              "value": "={{ $json.link }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a61d9cd4-98b3-4657-957e-601f83d8d833",
+      "name": "Set and Normalize Fields",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1840,
+        400
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "maxItems": 5
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        2016,
+        400
+      ],
+      "id": "191b626c-0ea4-4811-bfcd-e9cb04ff5afd",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.content }}",
+        "type": "key-points"
+      },
+      "type": "CUSTOM.chromeSummarizer",
+      "typeVersion": 1,
+      "position": [
+        2208,
+        400
+      ],
+      "id": "ebcaa5ce-0fc9-4008-b851-ae49a8bf7349",
+      "name": "Chrome Summarizer",
+      "credentials": {
+        "chromeAiApi": {
+          "id": "REDACTED_CREDENTIAL_ID",
+          "name": "REDACTED_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "REDACTED_WEBHOOK_PATH",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        944,
+        560
+      ],
+      "id": "7cdea3f3-f37d-444e-8e8b-efbb5fb92d4e",
+      "name": "Webhook",
+      "webhookId": "REDACTED_WEBHOOK_ID"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b8c00469-890b-4b5b-8e2e-2ad9ec2d0815",
+              "name": "rss",
+              "type": "array",
+              "value": "=[\n  \"https://www.engadget.com/rss.xml\",\n  \"https://feeds.arstechnica.com/arstechnica/index\",\n  \"https://www.theverge.com/rss/index.xml\",\n  \"https://www.wired.com/feed/rss\",\n  \"https://www.technologyreview.com/topnews.rss\",\n  \"https://techcrunch.com/feed/\"\n]\n"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "16f1d605-c34d-4553-a24e-5846b2f73bf9",
+      "name": "Set Tech News RSS Feeds1",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1200,
+        400
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "summary"
+            },
+            {
+              "fieldToAggregate": "title"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        2416,
+        400
+      ],
+      "id": "9d5139a2-0f28-4505-9c72-9874b66a58da",
+      "name": "Aggregate"
+    }
+  ],
+  "pinData": {
+    "Chrome Summarizer": [
+      {
+        "json": {
+          "title": "The 50 Best Shows on HBO Max Right Now (November 2025)",
+          "content": "It: Welcome to Derry, The Chair Company, and Task are just a few of the shows you need to be watching on HBO Max this month.",
+          "date": "2025-10-28T19:00:00.000Z",
+          "link": "https://www.wired.com/story/hbo-max-best-shows-to-stream-right-now/",
+          "summary": "* Derry, The Chair, and Task are featured shows on HBO Max this month.\n* HBO Max offers a variety of shows for viewers to enjoy. \n* The text highlights specific titles available on the streaming service.",
+          "_meta": {
+            "originalLength": 124,
+            "summaryLength": 203,
+            "type": "key-points",
+            "format": "plain-text",
+            "length": "medium",
+            "timestamp": "2025-10-28T22:10:33.111Z"
+          }
+        }
+      },
+      {
+        "json": {
+          "title": "Donald Trump’s Truth Social Is Launching a Polymarket Competitor",
+          "content": "As crypto-based prediction services attract a flood of attention and capital, the US president’s social media platform has announced plans to muscle in.",
+          "date": "2025-10-28T18:51:45.000Z",
+          "link": "https://www.wired.com/story/trump-truth-social-launches-prediction-market/",
+          "summary": "* The US president's social media platform plans to enter the crypto-based prediction services market.\n* Crypto prediction services are currently gaining significant attention and investment.\n* This move signifies increased interest in Web3 technologies from mainstream platforms.\n* The president’s platform aims to leverage its existing user base and influence.\n* The entry of a major social media player could further accelerate the adoption of crypto prediction services.",
+          "_meta": {
+            "originalLength": 152,
+            "summaryLength": 474,
+            "type": "key-points",
+            "format": "plain-text",
+            "length": "medium",
+            "timestamp": "2025-10-28T22:10:35.024Z"
+          }
+        }
+      },
+      {
+        "json": {
+          "title": "One of Our Favorite Pairs of Binoculars Is $80 Off",
+          "content": "These lightweight Celestron binoculars offer great magnification for the price.",
+          "date": "2025-10-28T18:37:58.000Z",
+          "link": "https://www.wired.com/story/celestron-trailseeker-deal-1025/",
+          "summary": "* Celestron binoculars are lightweight.\n* They provide good magnification.\n* The binoculars are affordable.",
+          "_meta": {
+            "originalLength": 79,
+            "summaryLength": 107,
+            "type": "key-points",
+            "format": "plain-text",
+            "length": "medium",
+            "timestamp": "2025-10-28T22:10:35.559Z"
+          }
+        }
+      },
+      {
+        "json": {
+          "title": "The Oppo Find X9 Pro Has a Crazy-Long Detachable Zoom Lens",
+          "content": "The new Find X9 Pro has a built-in 200-megapixel telephoto lens, but you can get even closer with a hefty Hasselblad zoom lens.",
+          "date": "2025-10-28T16:00:00.000Z",
+          "link": "https://www.wired.com/story/oppo-find-x9-pro-detachable-camera/",
+          "summary": "* The Find X9 Pro features a 200-megapixel telephoto lens.\n* A Hasselblad zoom lens provides even greater magnification.\n* The Find X9 Pro is a new smartphone model.\n* The camera system is a notable feature of the new phone.",
+          "_meta": {
+            "originalLength": 127,
+            "summaryLength": 224,
+            "type": "key-points",
+            "format": "plain-text",
+            "length": "medium",
+            "timestamp": "2025-10-28T22:10:36.914Z"
+          }
+        }
+      },
+      {
+        "json": {
+          "title": "Hurricane Melissa Has Meteorologists Terrified",
+          "content": "The storm, which is set to make landfall in Jamaica on Tuesday, has stunned meteorologists with its intensity and the speed at which it built.",
+          "date": "2025-10-28T15:41:38.000Z",
+          "link": "https://www.wired.com/story/hurricane-melissa-has-meteorologists-terrified/",
+          "summary": "* A storm is projected to make landfall in Jamaica on Tuesday.\n* Meteorologists are surprised by the storm's intensity.\n* The storm developed rapidly.",
+          "_meta": {
+            "originalLength": 142,
+            "summaryLength": 150,
+            "type": "key-points",
+            "format": "plain-text",
+            "length": "medium",
+            "timestamp": "2025-10-28T22:10:37.768Z"
+          }
+        }
+      }
+    ],
+    "Aggregate": [
+      {
+        "json": {
+          "summary": [
+            "* Derry, The Chair, and Task are featured shows on HBO Max this month.\n* HBO Max offers a variety of shows for viewers to enjoy. \n* The text highlights specific titles available on the streaming service.",
+            "* The US president's social media platform plans to enter the crypto-based prediction services market.\n* Crypto prediction services are currently gaining significant attention and investment.\n* This move signifies increased interest in Web3 technologies from mainstream platforms.\n* The president’s platform aims to leverage its existing user base and influence.\n* The entry of a major social media player could further accelerate the adoption of crypto prediction services.",
+            "* Celestron binoculars are lightweight.\n* They provide good magnification.\n* The binoculars are affordable.",
+            "* The Find X9 Pro features a 200-megapixel telephoto lens.\n* A Hasselblad zoom lens provides even greater magnification.\n* The Find X9 Pro is a new smartphone model.\n* The camera system is a notable feature of the new phone.",
+            "* A storm is projected to make landfall in Jamaica on Tuesday.\n* Meteorologists are surprised by the storm's intensity.\n* The storm developed rapidly."
+          ],
+          "title": [
+            "The 50 Best Shows on HBO Max Right Now (November 2025)",
+            "Donald Trump’s Truth Social Is Launching a Polymarket Competitor",
+            "One of Our Favorite Pairs of Binoculars Is $80 Off",
+            "The Oppo Find X9 Pro Has a Crazy-Long Detachable Zoom Lens",
+            "Hurricane Melissa Has Meteorologists Terrified"
+          ]
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Read RSS News Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Articles Daily": {
+      "main": [
+        [
+          {
+            "node": "Set Tech News RSS Feeds1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read RSS News Feeds": {
+      "main": [
+        [
+          {
+            "node": "Set and Normalize Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set and Normalize Fields": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Chrome Summarizer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chrome Summarizer": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Tech News RSS Feeds1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Tech News RSS Feeds1": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Send news",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "REDACTED_VERSION_ID",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "REDACTED_INSTANCE_ID"
+  },
+  "id": "REDACTED_WORKFLOW_ID",
+  "tags": []
+}
