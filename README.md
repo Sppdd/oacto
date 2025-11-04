@@ -1,6 +1,6 @@
 
 <p align="center">
-  <img src="chrome-workflows/icons/icon_128.png" alt="Chrome Workflows Extension Icon" width="96" />
+  <img src="./assets/icon128.png" alt="Chrome Workflows Extension Icon" width="96" />
   <br />
   <sub><b>Chrome Workflows Extension</b> <code>v0.5.0</code></sub>
 </p>
@@ -29,13 +29,13 @@ Custom n8n nodes that expose Chrome's AI capabilities:
 
 - **Chrome Prompt AI** ✅ - General text generation (works reliably)
 - Chrome Writer - Text writing with tone/format
-- Chrome Summarizer - Text summarization
+- Chrome Summarizer - Text summarisation
 - Chrome Translator - Language translation
 - Chrome Rewriter - Text rewriting
 - Chrome Proofreader - Grammar checking
 - Chrome Language Detector - Language detection
 
-> **Note**: Currently only Prompt AI works reliably. Other APIs are experimental and require user interaction.
+> **Note**: Currently, only Prompt AI works reliably. Other APIs are experimental and require user interaction.
 
 ### 3. **Chrome Workflows Extension** (`chrome-workflows/`)
 Browser extension to trigger n8n workflows from any webpage via right-click.
@@ -94,99 +94,22 @@ Browser extension to trigger n8n workflows from any webpage via right-click.
 
 ## Scripts to faster setup. 
 
+### Install Everything
+```bash
+./install.sh
+```
+
 ### Start Everything
 ```bash
 ./start-platform.sh
 ```
-Starts bridge server and n8n.
+Starts the bridge server and n8n.
 
 ### Stop Everything
 ```bash
 ./stop-platform.sh
 ```
 Stops all services.
-
-
-
-
-
-
-## How It Works
-
-```
-┌──────────────────────────────────────────────────────────┐
-│                                                          │
-│  1. User creates workflow in n8n                         │
-│     with Chrome AI nodes                                 │
-│                                                          │
-└────────────────────┬─────────────────────────────────────┘
-                     │ HTTP Request
-                     ↓
-┌──────────────────────────────────────────────────────────┐
-│                                                          │
-│  2. n8n node sends request to                            │
-│     Bridge Server (localhost:3333)                       │
-│                                                          │
-└────────────────────┬─────────────────────────────────────┘
-                     │ WebSocket
-                     ↓
-┌──────────────────────────────────────────────────────────┐
-│                                                          │
-│  3. Bridge Server forwards to                            │
-│     Web App (Chrome tab)                                 │
-│                                                          │
-└────────────────────┬─────────────────────────────────────┘
-                     │ window.ai
-                     ↓
-┌──────────────────────────────────────────────────────────┐
-│                                                          │
-│  4. Web App calls Chrome AI APIs                         │
-│     (Gemini Nano on-device)                              │
-│                                                          │
-└────────────────────┬─────────────────────────────────────┘
-                     │ Response
-                     ↓
-┌──────────────────────────────────────────────────────────┐
-│                                                          │
-│  5. Result returns through chain                         │
-│     back to n8n workflow                                 │
-│                                                          │
-└──────────────────────────────────────────────────────────┘
-```
-
-## Project Structure
-
-```
-Journal.dev/
-├── webapp/                    # Bridge Server & Web App
-│   ├── server.js             # HTTP + WebSocket server
-│   ├── public/               # Web interface
-│   │   ├── index.html        # Simple UI
-│   │   ├── app.js            # Core logic
-│   │   ├── styles.css        # Clean styles
-│   │   └── tokens.js         # Origin trial tokens
-│   └── package.json
-│
-├── packages/
-│   └── n8n-nodes-chrome-ai/  # Custom n8n nodes
-│       ├── nodes/            # Node implementations
-│       ├── credentials/      # Chrome AI credentials
-│       └── utils/            # HTTP client
-│
-├── chrome-workflows/          # Browser extension
-│   ├── manifest.json         # Extension config
-│   ├── background.js         # Service worker
-│   ├── popup/                # Extension popup
-│   └── manage_workflows/     # Workflow management
-│
-├── docs/                      # Documentation
-│   ├── ARCHITECTURE.md       # System architecture
-│   ├── NODE-REFERENCE.md     # Node documentation
-│   └── TROUBLESHOOTING.md    # Common issues
-│
-├── start-platform.sh         # Start everything
-└── stop-platform.sh          # Stop everything
-```
 
 ## Features
 
@@ -196,30 +119,16 @@ Journal.dev/
 - ✅ **Fast** - On-device inference, no network latency
 - ✅ **Integrated** - Works seamlessly with n8n workflows
 - ✅ **Session Management** - Continue conversations across workflow runs
-- ✅ **Fallback Support** - Automatically falls back to Prompt AI when specific APIs unavailable
+- ✅ **Fallback Support** - Automatically falls back to Prompt AI when specific APIs are unavailable
 - ✅ **Concurrent Sessions** - Multiple AI operations can run simultaneously
 
 ## Limitations
 
-- Web app must be open in Chrome tab
+- Web app must be open in a Chrome tab
 - Chrome AI flags must be enabled
 - Gemini Nano model must be downloaded (~1.5GB)
 - **All Chrome AI nodes now work reliably** with automatic fallback to Prompt AI
-- Writer API may still require user interaction but has fallback support
-
-## Scripts
-
-### Start Everything
-```bash
-./start-platform.sh
-```
-Starts bridge server and n8n.
-
-### Stop Everything
-```bash
-./stop-platform.sh
-```
-Stops all services.
+- Writer API may still require user interaction, but has fallback support
 
 ## Documentation
 
@@ -236,7 +145,7 @@ Stops all services.
 - **Data Processing**: Summarize documents, extract information
 - **Translation**: Translate text between languages
 - **Code Assistance**: Generate code snippets, explain code
-- **Research**: Analyze text, answer questions
+- **Research**: Analyse text, answer questions
 - **Automation**: Any workflow that needs AI text processing
 
 ## Requirements
@@ -254,9 +163,6 @@ Stops all services.
 - Communication is only on `localhost`
 - Your data never leaves your machine
 
-## Contributing
-
-This is an experimental integration. Contributions, bug reports, and suggestions are welcome!
 
 ## Known Issues
 
@@ -264,31 +170,6 @@ This is an experimental integration. Contributions, bug reports, and suggestions
 2. **Chrome flags required** - Must enable experimental features
 3. **Single tab requirement** - Web app must stay open
 4. **Writer API user gestures** - May require user interaction but has fallback support
-
-## Troubleshooting
-
-**AI not available?**
-- Enable Chrome flags: `chrome://flags`
-- Download model: `chrome://components/`
-- Restart Chrome
-
-**Can't connect?**
-- Ensure web app is open: `http://localhost:3333`
-- Check server is running: `cd webapp && npm start`
-- Verify n8n credentials have correct URL
-
-**Workflows fail?**
-- Check web app activity log
-- Verify Chrome AI status shows "Ready"
-- Use Chrome Prompt AI node (most reliable)
-
-## License
-
-MIT
-
-## Author
-
-Built with ❤️ for local, private AI automation
 
 ---
 
